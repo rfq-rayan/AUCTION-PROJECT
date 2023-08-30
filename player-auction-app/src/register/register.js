@@ -33,7 +33,15 @@ const Register = () => {
             axios
                 .post("http://localhost:9002/register", user)
                 .then((res) => {
-                    alert(res.data.message);
+                    // alert(res.data.message);
+                    //alert("Registration successful"); or alert the error
+                    if (res.data.message === "Registration successful") {
+                        alert("Registration successful");
+                    }
+                    else {
+                        alert("Registration failed");
+                    }
+
                 })
                 .catch((err) => {
                     console.log(err);

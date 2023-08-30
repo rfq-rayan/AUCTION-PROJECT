@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import '../css/login.css';
 import { useNavigate } from 'react-router-dom';
+import Cookies from 'js-cookie';
 
 const Login = ({ setUserInfo }) => {
   const navigate = useNavigate();
@@ -33,10 +34,10 @@ const Login = ({ setUserInfo }) => {
         .post('http://localhost:9002/login', user)
         .then((res) => {
           if (res.data.message === 'Login successful') {
+            Cookies.set('userInfo',JSON.stringify(res.data.user), { expires: 3 });
             setUserInfo(res.data.user);
-            
-            navigate('/');
             alert('Login successful');
+            navigate('/');
           } else {
             alert('Invalid Credentials');
           }

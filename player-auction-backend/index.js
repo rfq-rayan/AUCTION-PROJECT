@@ -11,7 +11,7 @@ oracledb.outFormat = oracledb.OUT_FORMAT_OBJECT;
 // Connection Configuration
 const dbConfig = {
     user: 'AUCTION',
-    password: '2005067', 
+    password: '12345', 
     connectString: 'localhost/orclpdb'
 };
 
@@ -23,6 +23,7 @@ app.post("/login", async (req, res) => {
             const userInfo = await getUserInfo(role, email); // Fetch user information
             console.log(userInfo);
             if (userInfo) {
+                // console.log("I am here");
                 res.json({ message: 'Login successful', user: userInfo }); // Change 'userInfo' to 'user'
             } else {
                 res.json({ message: 'User information not found' });
@@ -36,6 +37,17 @@ app.post("/login", async (req, res) => {
     }
 });
 
+app.get("/players", async (req, res) => {
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+        const result = await connection.execute('SELECT * FROM Player');
+        connection.close();
+        res.json(result.rows);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
 
 
 
@@ -48,7 +60,8 @@ app.post("/register", async (req, res) => {
         if (result) {
             res.json({ message: 'Registration successful'});
         } else {
-            res.status(500).json({ error: 'Registration failed' });
+            // res.status(500).json({ error: 'Registration failed' });
+            res.json({ message: 'Registration failed' });
         }
     } catch (error) {
         console.error(error);
@@ -130,6 +143,9 @@ async function getUserInfo(role, email) {
         const userInfoQuery = `SELECT * FROM ${tableName} WHERE Mail = :email`;
         const userInfoResult = await connection.execute(userInfoQuery, { email });
         const userInfo = userInfoResult.rows[0];
+        // add table name to the user info
+        userInfo.Role = tableName;
+
         console.log( userInfo);
         console.log("Iaaa");
 
@@ -198,8 +214,16 @@ async function registerUser(name, password, email, role) {
 
         // Generate the ID as a 3-digit padded string
         const generatedId = (recordCount + 1).toString().padStart(3, '0');
-
-       
+        
+        //verify if already exists
+        const verifyQuery = `SELECT COUNT(*) AS user_count FROM ${tableName} WHERE Mail = :email`;
+        const verifyResult = await connection.execute(verifyQuery, { email });
+        const userCount = verifyResult.rows[0].USER_COUNT;
+        if(userCount > 0) {
+            console.log('User already exists');
+            
+            return false;
+        }
       
         console.log("IN");
         // Construct the INSERT query

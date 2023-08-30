@@ -1,32 +1,49 @@
-// import React from "react";
-// import "../css/homepage.css";
-
-// const Homepage = () => {
-
-//     return (
-//         <div className="homepage">
-//             <h1>Homepage</h1>
-//             {/* <h2></h2>
-//              */}
-//         </div>
-//     );
-// }
-
-// export default Homepage;
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import Cookies from 'js-cookie';
 
 const Homepage = ({ userInfo }) => {
-    console.log(userInfo);
-    // userInfo = JSON.parse(userInfo);
-    const info = JSON.parse(userInfo);
-   
+  const [userInfos, setUserInfos] = useState(null);
+  const [players, setPlayers] = useState([]);
+
+  useEffect(() => {
+    // Fetch the user information from the cookie
+    const storedUserInfo = Cookies.get('userInfo');
+    console.log('Fetching user info from cookie:', storedUserInfo);
+    if (storedUserInfo) {
+      setUserInfos(JSON.parse(storedUserInfo));
+    }
+  }, []); // This effect should run only once, on component mount
+
+  useEffect(() => {
+    // Fetch the list of players if the user is an admin
+    console.log('Fetching players');
+    // console.log('User info:', userInfos)
+    console.log(userInfos && userInfos.Role === 'admin')
+    console.log(userInfos.Role)
+    if (userInfos && userInfos.Role === 'admin') {
+      axios.get('http://localhost:9002/players')
+        // console.log("I am here")
+        .then((res) => {
+          setPlayers(res.data);
+        })
+        .catch((err) => {
+          console.error(err);
+        });
+    }
+  }, [userInfos]); // This effect depends on userInfos
+
+
   return (
     <div>
-      {/* <h1>Hello, {userInfo && userInfo.Id}</h1>
-       */}
-        <h1>Hello, {info && info.Id}</h1>
-      {/* Other content */}
+      {userInfos ? (
+        <>
+          <h1>Hello, {userInfos.NAME}</h1>
+          
+        </>
+      ) : (
+        <p>Loading user information...</p>
+      )}
     </div>
   );
 };
