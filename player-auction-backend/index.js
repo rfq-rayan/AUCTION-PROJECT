@@ -69,6 +69,10 @@ app.get("/auctions", async (req, res) => {
 // Function to create a new auction in the database
 app.post("/createAuction", async (req, res) => {
     const { name, type, adminId } = req.body;
+    if (!name || !type || !adminId) {
+        return res.status(400).json({ error: 'Missing required parameters' });
+    }
+
 
     try {
         const result = await createAuction(name, type, adminId);
@@ -84,6 +88,7 @@ app.post("/createAuction", async (req, res) => {
 
 });
 
+
 // Function to create a new auction in the database
 async function createAuction(name, type, adminId) {
     try {
@@ -91,35 +96,43 @@ async function createAuction(name, type, adminId) {
         // check if auction already exists
         const verifyQuery = `SELECT COUNT(*) AS auction_count FROM Auction_Details WHERE Name = :name AND Type = :type AND Admin_Id = :adminId`;
         const verifyResult = await connection.execute(verifyQuery, { name, type, adminId });
+        // console.log(name, type, adminId);
         const auctionCount = verifyResult.rows[0].AUCTION_COUNT;
         if (auctionCount > 0) {
             console.log('Auction already exists');
             return false;
         }
-        
-        //generate id
-        const countQuery = `SELECT COUNT(*) AS record_count FROM Auction_Details`;
-        const countResult = await connection.execute(countQuery);
-        const recordCount = countResult.rows[0].RECORD_COUNT;
-        const generatedId = (recordCount + 1).toString().padStart(3, '0');
-        
-        const insertQuery = `INSERT INTO Auction_Details (ID, Name, Type, Admin_Id) VALUES (:id, :name, :type, :adminId)`;
+
+        // Query to insert a new auction into the Auction_Details table]
+        const insertQuery = `
+            BEGIN
+                CREATE_AUCTION(:adminId, :name, :type );
+            END;
+        `;
+
+        // //generate id
+        // const countQuery = `SELECT COUNT(*) AS record_count FROM Auction_Details`;
+        // const countResult = await connection.execute(countQuery);
+        // const recordCount = countResult.rows[0].RECORD_COUNT;
+        // const generatedId = (recordCount + 1).toString().padStart(3, '0');
+
+        // const insertQuery = `INSERT INTO Auction_Details (ID, Name, Type, Admin_Id) VALUES (:id, :name, :type, :adminId)`;
         const bindVars = {
-            id: generatedId,
+            // id: generatedId,
             name: name,
             type: type,
             adminId: adminId
         };
-        console.log("Auction created");
         await connection.execute(insertQuery, bindVars);
+        console.log("Auction created");
         await connection.commit();
         connection.close();
-        console.log(`Auction created with ID: ${generatedId}`);
+        // console.log(`Auction created with ID: ${generatedId}`);
         return true;
     } catch (error) {
         console.error(error);
         return false;
-    } 
+    }
 }
 // Function to fetch auctions for a specific adminId from the database
 async function getAuctions(adminId) {
@@ -172,28 +185,43 @@ app.delete("/deleteAuction/:id", async (req, res) => {
     const auctionId = req.params.id;
     try {
         const connection = await oracledb.getConnection(dbConfig);
-      // Check if the auction exists
-      console.log(auctionId);
-      const auctionExistsQuery = `SELECT COUNT(*) AS auction_count FROM Auction_Details WHERE Id = :auctionId`;
-      const auctionExistsResult = await connection.execute(auctionExistsQuery, { auctionId });
-      const auctionCount = auctionExistsResult.rows[0].AUCTION_COUNT;
-  
-      if (auctionCount === 0) {
-        return res.status(404).json({ message: 'Auction not found' });
-      }
-  
-      // Delete the auction
-      const deleteAuctionQuery = `DELETE FROM Auction_Details WHERE Id = :auctionId`;
-      await connection.execute(deleteAuctionQuery, { auctionId });
-      await connection.commit();
-      // Respond with success
-      res.json({ message: 'Auction deleted successfully' });
+        // Check if the auction exists
+
+
+        //   console.log(auctionId);
+        //   const auctionExistsQuery = `SELECT COUNT(*) AS auction_count FROM Auction_Details WHERE Id = :auctionId`;
+        //   const auctionExistsResult = await connection.execute(auctionExistsQuery, { auctionId });
+        //   const auctionCount = auctionExistsResult.rows[0].AUCTION_COUNT;
+
+        //   if (auctionCount === 0) {
+        //     return res.status(404).json({ message: 'Auction not found' });
+        //   }
+
+        //   // Delete the auction
+        //   const deleteAuctionQuery = `DELETE FROM Auction_Details WHERE Id = :auctionId`;
+        //   await connection.execute(deleteAuctionQuery, { auctionId });
+        //   await connection.commit();
+
+        const deleteAuctionQuery = `
+    BEGIN
+        DELETE_AUCTION(:auctionId);
+    END;
+`;
+
+        const bindVars = {
+            auctionId: auctionId
+        };
+
+        await connection.execute(deleteAuctionQuery, bindVars);
+
+        // Respond with success
+        res.json({ message: 'Auction deleted successfully' });
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: 'An error occurred' });
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
     }
-  });
-  
+});
+
 
 // add loginuser code here
 async function loginUser(email, password, role) {

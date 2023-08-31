@@ -38,10 +38,12 @@ const Homepage = ({ userInfo }) => {
       type: auctionType,
       adminId: userInfosRef.current.ID, // Get the Admin_Id from userInfosRef
     };
+    
 
     // Make a POST request to create a new auction
     axios.post('http://localhost:9002/createAuction', newAuction)
       .then((res) => {
+        console.log(newAuction);
         // Refresh the list of auctions
         setAuctions([...auctions, newAuction]);
         // Clear the input fields
@@ -74,7 +76,7 @@ const Homepage = ({ userInfo }) => {
     <div>
       {userInfosRef.current ? (
         <>
-        {console.log("I aaa" )}
+        {/* {console.log("I aaa" )} */}
           <h1>Hello, {userInfosRef.current.NAME}</h1>
 
           <div>
