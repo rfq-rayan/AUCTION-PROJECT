@@ -11,9 +11,10 @@ oracledb.outFormat = oracledb.OUT_FORMAT_OBJECT;
 // Connection Configuration
 const dbConfig = {
     user: 'AUCTION',
-    password: '12345', 
+    password: '12345',
     connectString: 'localhost/orclpdb'
 };
+
 
 app.post("/login", async (req, res) => {
     const { email, password, role } = req.body;
@@ -32,7 +33,7 @@ app.post("/login", async (req, res) => {
             res.json({ message: 'User not found' });
         }
     } catch (error) {
-        console.error(error); 
+        console.error(error);
         res.status(500).json({ error: 'An error occurred' });
     }
 });
@@ -49,6 +50,101 @@ app.get("/players", async (req, res) => {
     }
 });
 
+app.get("/auctions", async (req, res) => {
+    const { adminId } = req.query; // Assuming you pass the adminId as a query parameter
+
+    if (!adminId) {
+        return res.status(400).json({ error: 'Missing adminId parameter' });
+    }
+
+    try {
+        const auctions = await getAuctions(adminId);
+        res.json(auctions);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+
+// Function to create a new auction in the database
+app.post("/createAuction", async (req, res) => {
+    const { name, type, adminId } = req.body;
+
+    try {
+        const result = await createAuction(name, type, adminId);
+        if (result) {
+            res.json({ message: 'Auction created successfully' });
+        } else {
+            res.json({ message: 'Auction creation failed' });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+
+});
+
+// Function to create a new auction in the database
+async function createAuction(name, type, adminId) {
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+        // check if auction already exists
+        const verifyQuery = `SELECT COUNT(*) AS auction_count FROM Auction_Details WHERE Name = :name AND Type = :type AND Admin_Id = :adminId`;
+        const verifyResult = await connection.execute(verifyQuery, { name, type, adminId });
+        const auctionCount = verifyResult.rows[0].AUCTION_COUNT;
+        if (auctionCount > 0) {
+            console.log('Auction already exists');
+            return false;
+        }
+        
+        //generate id
+        const countQuery = `SELECT COUNT(*) AS record_count FROM Auction_Details`;
+        const countResult = await connection.execute(countQuery);
+        const recordCount = countResult.rows[0].RECORD_COUNT;
+        const generatedId = (recordCount + 1).toString().padStart(3, '0');
+        
+        const insertQuery = `INSERT INTO Auction_Details (ID, Name, Type, Admin_Id) VALUES (:id, :name, :type, :adminId)`;
+        const bindVars = {
+            id: generatedId,
+            name: name,
+            type: type,
+            adminId: adminId
+        };
+        console.log("Auction created");
+        await connection.execute(insertQuery, bindVars);
+        await connection.commit();
+        connection.close();
+        console.log(`Auction created with ID: ${generatedId}`);
+        return true;
+    } catch (error) {
+        console.error(error);
+        return false;
+    } 
+}
+// Function to fetch auctions for a specific adminId from the database
+async function getAuctions(adminId) {
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        // Query to fetch auctions related to a specific adminId from the Auction_Details table
+        const auctionsQuery = `
+            SELECT Id, Name, Type
+            FROM Auction_Details
+            WHERE Admin_Id = :adminId
+        `;
+        console.log(adminId);
+        const auctionsResult = await connection.execute(auctionsQuery, { adminId });
+        console.log(auctionsResult.rows);
+
+        connection.close();
+
+        return auctionsResult.rows;
+    } catch (error) {
+        console.error(error);
+        return [];
+    }
+}
+
 
 
 app.post("/register", async (req, res) => {
@@ -58,7 +154,7 @@ app.post("/register", async (req, res) => {
         const result = await registerUser(name, password, email, role);
 
         if (result) {
-            res.json({ message: 'Registration successful'});
+            res.json({ message: 'Registration successful' });
         } else {
             // res.status(500).json({ error: 'Registration failed' });
             res.json({ message: 'Registration failed' });
@@ -69,11 +165,41 @@ app.post("/register", async (req, res) => {
     }
 });
 
+// Assuming you have your app and database configuration set up
+
+app.delete("/deleteAuction/:id", async (req, res) => {
+    console.log(req.params.id)
+    const auctionId = req.params.id;
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+      // Check if the auction exists
+      console.log(auctionId);
+      const auctionExistsQuery = `SELECT COUNT(*) AS auction_count FROM Auction_Details WHERE Id = :auctionId`;
+      const auctionExistsResult = await connection.execute(auctionExistsQuery, { auctionId });
+      const auctionCount = auctionExistsResult.rows[0].AUCTION_COUNT;
+  
+      if (auctionCount === 0) {
+        return res.status(404).json({ message: 'Auction not found' });
+      }
+  
+      // Delete the auction
+      const deleteAuctionQuery = `DELETE FROM Auction_Details WHERE Id = :auctionId`;
+      await connection.execute(deleteAuctionQuery, { auctionId });
+      await connection.commit();
+      // Respond with success
+      res.json({ message: 'Auction deleted successfully' });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'An error occurred' });
+    }
+  });
+  
+
 // add loginuser code here
 async function loginUser(email, password, role) {
     try {
         let tableName = '';
-        
+
         // Determine the table name based on the selected role
         switch (role) {
             case 'admin':
@@ -99,12 +225,12 @@ async function loginUser(email, password, role) {
         const loginResult = await connection.execute(loginQuery, { email, password });
         const userCount = loginResult.rows[0].USER_COUNT;
         connection.close();
-        if(userCount > 0) {
+        if (userCount > 0) {
             // console.log('User found');
             return true;
             // res.send({message: 'Login successful', user: user})
         }
-        else{
+        else {
             // console.log('Invalid credentials');
             return false;
             // res.send({message: 'Invalid credentials'})
@@ -118,7 +244,7 @@ async function loginUser(email, password, role) {
 async function getUserInfo(role, email) {
     try {
         let tableName = '';
-        
+
         // Determine the table name based on the selected role
         switch (role) {
             case 'admin':
@@ -146,7 +272,7 @@ async function getUserInfo(role, email) {
         // add table name to the user info
         userInfo.Role = tableName;
 
-        console.log( userInfo);
+        console.log(userInfo);
         console.log("Iaaa");
 
         connection.close();
@@ -182,7 +308,7 @@ async function registerUser(name, password, email, role) {
                 additionalData.Total_Player = 0; // Set your default value here
                 additionalData.Available_Fund = 0.0; // Set your default value here
                 additionalData.Total_Fund = 0.0; // Set your default value here
-                
+
                 break;
             case 'player':
                 tableName = 'Player';
@@ -214,23 +340,23 @@ async function registerUser(name, password, email, role) {
 
         // Generate the ID as a 3-digit padded string
         const generatedId = (recordCount + 1).toString().padStart(3, '0');
-        
+
         //verify if already exists
         const verifyQuery = `SELECT COUNT(*) AS user_count FROM ${tableName} WHERE Mail = :email`;
         const verifyResult = await connection.execute(verifyQuery, { email });
         const userCount = verifyResult.rows[0].USER_COUNT;
-        if(userCount > 0) {
+        if (userCount > 0) {
             console.log('User already exists');
-            
+
             return false;
         }
-      
+
         console.log("IN");
         // Construct the INSERT query
         // Construct the INSERT query
         const insertQuery = `INSERT INTO ${tableName} (ID, Name, Password, ${Object.keys(additionalData).join(', ')})
         VALUES (:id, :name, :password, ${Object.keys(additionalData).map(key => `:${key}`).join(', ')})`;
-        
+
 
         const bindVars = {
             id: generatedId,
