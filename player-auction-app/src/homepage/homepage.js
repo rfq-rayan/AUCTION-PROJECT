@@ -19,10 +19,10 @@ const Homepage = ({ userInfo }) => {
 
   useEffect(() => {
     if (userInfosRef.current) {
+          
       const adminId = userInfosRef.current.ID; // Get the Admin_Id from userInfosRef
       axios.get(`http://localhost:9002/auctions?adminId=${adminId}`) // Pass adminId as a query parameter
         .then((res) => {
-
           console.log(res.data); 
           setAuctions(res.data);
         })
@@ -39,21 +39,25 @@ const Homepage = ({ userInfo }) => {
       adminId: userInfosRef.current.ID, // Get the Admin_Id from userInfosRef
     };
     
-
     // Make a POST request to create a new auction
     axios.post('http://localhost:9002/createAuction', newAuction)
       .then((res) => {
-        console.log(newAuction);
+        console.log(newAuction); 
         // Refresh the list of auctions
         setAuctions([...auctions, newAuction]);
         // Clear the input fields
         setAuctionName('');
         setAuctionType('');
+
+
+        //reload the page
+        window.location.reload();
       })
       .catch((err) => {
         console.error(err);
       });
   };
+  
   const handleDeleteAuction = (auctionId) => {
     // Make a DELETE request to delete the auction
     axios.delete(`http://localhost:9002/deleteAuction/${auctionId}`)
@@ -61,6 +65,8 @@ const Homepage = ({ userInfo }) => {
         // Refresh the list of auctions after deletion
         const updatedAuctions = auctions.filter((auction) => auction.id !== auctionId);
         setAuctions(updatedAuctions);
+
+        window.location.reload();
       })
       .catch((err) => {
         console.error(err);
@@ -114,9 +120,7 @@ const Homepage = ({ userInfo }) => {
         <p>Loading user information...</p>
         
       )}
-
-<button onclick="location.reload()">Refresh</button>
-
+<button onClick={() => window.location.reload()}>Refresh</button>
     </div>
     
   );

@@ -1,0 +1,29 @@
+.table-container {
+    max-height: 200px; /* Adjust the maximum height as needed */
+    overflow-y: 100px;
+    overflow-x: hidden;
+    display: block;
+    border: 1px solid black;
+
+  }
+/* players.css */
+
+/* Styles for the Players in Auction section */
+.player-in-auction {
+    margin-top: 230px; /* Adjust the margin as needed */
+    margin-left: -350px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    background-color: #f0f0f0; /* Background color */
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  .player-in-auction h2 {
+    font-size: 1.2rem;
+    margin-bottom: 10px;
+    color: #333; /* Text color */
+  }
+  
+
+  

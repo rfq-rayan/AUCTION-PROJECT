@@ -50,6 +50,39 @@ app.get("/players", async (req, res) => {
     }
 });
 
+// Fetch players for a specific auction ID
+app.get("/auction/:id/players", async (req, res) => {
+    const auctionId = req.params.id;
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        const playersQuery = `
+            SELECT p.*,pa.BASE_PRICE,pa.CATEGORY
+            FROM Player p
+            JOIN Player_In_Auction pa ON p.Id = pa.Player_Id
+            WHERE pa.Auction_Id = :auctionId
+        `;
+        // console.log(`Auction ID: ${auctionId}`);
+        const playersResult = await connection.execute(playersQuery, { auctionId });
+        const players = playersResult.rows;
+        if(playersResult.rows.length > 0){
+            console.log( playersResult.rows);
+            console.log(`currentplayers: ${playersResult.rows[0].NAME}`);
+        }
+        else{
+            console.log("No players found");
+        }
+
+        connection.close();
+
+        res.json(players);
+        console.log(players);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+
 app.get("/auctions", async (req, res) => {
     const { adminId } = req.query; // Assuming you pass the adminId as a query parameter
 
@@ -60,6 +93,35 @@ app.get("/auctions", async (req, res) => {
     try {
         const auctions = await getAuctions(adminId);
         res.json(auctions);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+
+// Fetch auction details for a specific ID
+app.get("/auction/:id", async (req, res) => {
+    const auctionId = req.params.id;
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+        
+        // Query to fetch auction details based on the provided auctionId
+        const auctionDetailsQuery = `
+            SELECT Id, Name, Type
+            FROM Auction_Details
+            WHERE Id = :auctionId
+        `;
+        
+        const auctionDetailsResult = await connection.execute(auctionDetailsQuery, { auctionId });
+        connection.close();
+        
+        // Check if the auction details were found
+        if (auctionDetailsResult.rows.length > 0) {
+            const auctionDetails = auctionDetailsResult.rows[0];
+            res.json(auctionDetails);
+        } else {
+            res.status(404).json({ message: 'Auction details not found' });
+        }
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'An error occurred' });
@@ -185,29 +247,11 @@ app.delete("/deleteAuction/:id", async (req, res) => {
     const auctionId = req.params.id;
     try {
         const connection = await oracledb.getConnection(dbConfig);
-        // Check if the auction exists
-
-
-        //   console.log(auctionId);
-        //   const auctionExistsQuery = `SELECT COUNT(*) AS auction_count FROM Auction_Details WHERE Id = :auctionId`;
-        //   const auctionExistsResult = await connection.execute(auctionExistsQuery, { auctionId });
-        //   const auctionCount = auctionExistsResult.rows[0].AUCTION_COUNT;
-
-        //   if (auctionCount === 0) {
-        //     return res.status(404).json({ message: 'Auction not found' });
-        //   }
-
-        //   // Delete the auction
-        //   const deleteAuctionQuery = `DELETE FROM Auction_Details WHERE Id = :auctionId`;
-        //   await connection.execute(deleteAuctionQuery, { auctionId });
-        //   await connection.commit();
-
         const deleteAuctionQuery = `
     BEGIN
         DELETE_AUCTION(:auctionId);
     END;
 `;
-
         const bindVars = {
             auctionId: auctionId
         };
@@ -221,8 +265,64 @@ app.delete("/deleteAuction/:id", async (req, res) => {
         res.status(500).json({ error: 'An error occurred' });
     }
 });
+// Delete a player from an auction
+app.delete("/auction/:auctionId/players/:playerId", async (req, res) => {
+    const auctionId = req.params.auctionId;
+    const playerId = req.params.playerId;
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+        const removePlayerQuery = `DELETE FROM Player_In_Auction WHERE Auction_Id = :auctionId AND Player_Id = :playerId`;
+        const bindVars = {
+            auctionId: auctionId,
+            playerId: playerId
+        };
+        await connection.execute(removePlayerQuery, bindVars);
+        await connection.commit();
+        connection.close();
+        res.json({ message: 'Player removed successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+// Assign a player to an auction
+app.post("/assignPlayerToAuction/:auctionId/:playerId", async (req, res) => {
+    const auctionId = req.params.auctionId;
+    const playerId = req.params.playerId;
+    try {
+        await insertNotification(playerId, auctionId, basePrice, category);
 
+        res.json({ message: 'Notification sent to player' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+async function insertNotification(playerId, auctionId, basePrice, category) {
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
 
+        const notificationQuery = `
+            INSERT INTO Assign_Notifications_For_Players (Player_Id, Auction_Id, Base_Price, Category, Status)
+            VALUES (:playerId, :auctionId, :basePrice, :category, 'pending')
+        `;
+
+        const bindVars = {
+            playerId: { val: playerId, dir: oracledb.BIND_IN },
+            auctionId: { val: auctionId, dir: oracledb.BIND_IN },
+            basePrice: { val: basePrice, dir: oracledb.BIND_IN },
+            category: { val: category, dir: oracledb.BIND_IN }
+        };
+
+        await connection.execute(notificationQuery, bindVars);
+        await connection.commit();
+        // return true;
+        connection.close();
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
+}
 // add loginuser code here
 async function loginUser(email, password, role) {
     try {
