@@ -1,10 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
+import { DataTable } from 'primereact/datatable';
+import { Column } from 'primereact/column';
+import { Button } from 'primereact/button';
+// import 
+import Collapsible from 'react-collapsible';
+// import { Button } from 'primereact/button';
 
 const AuctionDetails = () => {
   const { id } = useParams(); // Extract auction ID from URL parameter
   const [auctionDetails, setAuctionDetails] = useState(null);
+  const [bidmanagers, setBidmanagers] = useState([]);
+  const auctionId = window.location.pathname.split('/')[2];
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -17,6 +25,18 @@ const AuctionDetails = () => {
         console.error(err);
       });
   }, [id]);
+  useEffect(() => {
+    // Fetch bidmanagers data
+    axios
+      .get(`http://localhost:9002/bidmanagersInvitationsZone/${auctionId}`)
+      .then((res) => {
+        setBidmanagers(res.data);
+        console.log(bidmanagers);
+      })
+      .catch((err) => {
+        console.error(err);
+      });
+  }, []);
 
   const handleNavigateToPlayers = () => {
     navigate(`/auction/${id}/players`);
@@ -30,6 +50,46 @@ const AuctionDetails = () => {
     navigate(`/auction/${id}/bidding-arena`);
   };
 
+  const handleInviteClick = (bidmanagerId) => {
+    const inviteData = {
+      auctionId: auctionId,
+      bidManagerId: bidmanagerId,
+    };
+    console.log(inviteData);
+
+    axios
+      .post(`http://localhost:9002/assignBidManagerToAuction`, inviteData)
+      .then((res) => {
+        alert('Bid Manager invited successfully');
+        window.location.reload();
+      })
+      .catch((err) => {
+        console.error(err);
+      }
+      );
+
+  };
+
+  const handleUNDO = (bidmanagerId) => {
+    const inviteData = {
+      auctionId: auctionId,
+      bidManagerId: bidmanagerId,
+    };
+    console.log(inviteData);
+
+    axios
+      .delete(`http://localhost:9002/undoBidManagerInvitation?auctionId=${auctionId}&bidManagerId=${bidmanagerId}`)
+      .then((res) => {
+        alert('Bid Manager removed successfully');
+        window.location.reload();
+      })
+      .catch((err) => {
+        console.error(err);
+      }
+      );
+
+  };
+
   return (
     <div>
       <br></br>
@@ -37,7 +97,7 @@ const AuctionDetails = () => {
       {auctionDetails ? (
         <>
           <h1>{auctionDetails.NAME}</h1>
-          <p>Auction Type: {auctionDetails.TYPE}</p> 
+          <p>Auction Type: {auctionDetails.TYPE}</p>
         </>
       ) : (
         <p>Loading auction details...</p>
@@ -48,6 +108,28 @@ const AuctionDetails = () => {
         <h2>Navigation</h2>
         <button onClick={handleNavigateToPlayers}>Players</button>
         <button onClick={handleNavigateToTeams}>Teams</button>
+        {/* <button onClick={handleNavigateToBidManager}>Bid Manager</button> */}
+        <Collapsible trigger={<Button>Bid Manager</Button>}>
+          <div className='table-container'>
+            <DataTable value={bidmanagers}>
+              <Column field='ID' header='ID'></Column>
+              <Column field='NAME' header='Name'></Column>
+              <Column field='PHOTO' header='Photo'></Column>
+              <Column field='STATUS' header='Status'></Column>
+              <Column
+                body={(bidmanager) =>
+                  bidmanager.STATUS == "pending" ?
+                    (<Button label='UNDO' onClick={() => handleUNDO(bidmanager.ID)} />
+                    ) : (
+                      <Button label='Invite' onClick={() => handleInviteClick(bidmanager.ID)} />
+                    )
+                }
+                header='Action'
+              />
+            </DataTable>
+          </div>
+        </Collapsible>
+
         <button onClick={handleNavigateToBiddingArena}>Bidding Arena</button>
       </div>
     </div>

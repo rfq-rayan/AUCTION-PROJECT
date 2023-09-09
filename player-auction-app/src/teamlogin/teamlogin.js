@@ -66,13 +66,13 @@ const TeamLogin = ({ userInfo }) => {
 
         // Implement logic to accept the notification
         // For example, send a request to your backend to accept the notification
-        const playerId = userInfosRef.current.ID;
+        const teamId = userInfosRef.current.ID;
         const auctionId = notification.auctionId;
-        console.log(playerId, auctionId);
+        console.log(teamId, auctionId);
         axios
-            .post(`http://localhost:9002/playerAssignmentResponse`,
+            .post(`http://localhost:9002/teamAssignmentResponse`,
                 {
-                    playerId: playerId,
+                    teamId: teamId,
                     auctionId: auctionId,
                     response: "accept",
                 })
@@ -136,9 +136,9 @@ const TeamLogin = ({ userInfo }) => {
                     <Collapsible trigger={<p><div className='noti'>Notifications</div></p>}>
                     {notifications && notifications.length > 0 ? (
                         <DataTable value={notifications} className='table'>
-                            <Column field="AUCTION_NAME" header="Auction Name" />
-                            <Column field="AUCTION_TYPE" header="Auction Type" />
-                            <Column field="auctionId" header="Auction ID" />
+                            <Column field="auctionName" header="Auction Name" />
+                            <Column field="auctionType" header="Auction Type" />
+                            {/* <Column field="auctionId" header="Auction ID" /> */}
                             <Column header="Action" body={actionButtons} />
                             
                         </DataTable>
@@ -153,10 +153,6 @@ const TeamLogin = ({ userInfo }) => {
                     <p> Loading info....</p>
                 )
 
-            
-        
-        
-        
         }
         </div>
     );

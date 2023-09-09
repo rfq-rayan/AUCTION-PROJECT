@@ -44,6 +44,7 @@ const PlayerLogin = ({ userInfo }) => {
                 .then((res) => {
                     // console.log(res.data);
                     const notificationData = res.data;
+                    
 
                     console.log(notificationData);
                     setNotifications(notificationData);
@@ -81,6 +82,7 @@ const PlayerLogin = ({ userInfo }) => {
                 {
                     playerId: playerId,
                     auctionId: auctionId,
+                   
                     response: "accept",
                 })
             .then((res) => {
@@ -128,7 +130,7 @@ const PlayerLogin = ({ userInfo }) => {
                     Notifications: {notifications.length} 
                     {notifications.length > 0 ? (
                         <DataTable value={notifications}>
-                            <Column field="auctionId" header="Auction ID" />
+                            <Column field="auctionName" header="Auction NAME" />
                             <Column field="basePrice" header="Base Price" />
                             <Column field="category" header="Category" />
                             <Column header="Actions" body={actionButtons} />

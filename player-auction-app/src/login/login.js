@@ -50,6 +50,10 @@ const Login = ({ setUserInfo }) => {
             {
               navigate(`/player/${id}`);
             }
+            else if (role === 'bidmanager')
+            {
+              navigate(`/bidmanager/${id}`);
+            }
             
           } else {
             alert('Invalid Credentials');
