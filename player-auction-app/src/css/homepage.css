@@ -64,17 +64,32 @@
     padding: 10px 20px;
     background-color: #007bff;
     color: white;
-    border: none;
+    /* border: 5px solid #0e0e0e; */
     border-radius: 5px;
     cursor: pointer;
     transition: background-color 0.2s;
+    /* border: 2px solid #4CAF50; */
   }
   
   .input-group button:hover {
-    background-color: #0056b3;
+    background-color: #000000;
+    /* font-weight: bold; */
   }
   
   .loading {
     font-style: italic;
   }
   
+  
+.input-container input {
+  border-radius: 8px;
+  border: 2px solid #dddfe2;
+  outline: none;
+  color: #1d2129;
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.75rem;
+  width: 50%;
+  font-size: 1rem;
+  /* display: inline; */
+  offset-distance: 10px;
+}

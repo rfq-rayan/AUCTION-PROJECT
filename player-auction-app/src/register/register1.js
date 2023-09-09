@@ -82,6 +82,28 @@ const Register = () => {
                 <option value="player">Player</option>
                 <option value="bidmanager">Bid Manager</option>
             </select>
+            //if in the above select tag, the value of user.role is "player", then render the following input field
+            {
+                user.role === "player" && (
+                    <input
+                        type="text"
+                        name="playingRole"
+                        value={user.playingRole}
+                        placeholder="Playing Role"
+                        onChange={handleChange}
+                    />
+                )
+                
+            }
+            { user.role === "player" && (
+                <input
+                    type="text"
+                    name="playingRole"
+                    value={user.playingRole}
+                    placeholder="Playing Role"
+                    onChange={handleChange}
+                />
+            )}
 
             <div className="button" onClick={handleRegister}>
                 Register

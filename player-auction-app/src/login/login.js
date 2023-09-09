@@ -37,7 +37,20 @@ const Login = ({ setUserInfo }) => {
             Cookies.set('userInfo',JSON.stringify(res.data.user), { expires: 3 });
             setUserInfo(res.data.user);
             alert('Login successful');
-            navigate('/');
+            const id = res.data.user.ID;
+            if (role === 'admin') 
+            {
+              navigate('/homepage');
+            }
+            else if (role === 'team')
+            {
+              navigate(`/team/${id}`);
+            }
+            else if (role === 'player')
+            {
+              navigate(`/player/${id}`);
+            }
+            
           } else {
             alert('Invalid Credentials');
           }

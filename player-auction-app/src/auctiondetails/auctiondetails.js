@@ -32,19 +32,19 @@ const AuctionDetails = () => {
 
   return (
     <div>
-      <h2>Auction Details</h2>
+      <br></br>
+      {/* <h2>Auction Details</h2> */}
       {auctionDetails ? (
         <>
-          <p>Auction ID: {auctionDetails.ID}</p>
-          <p>Auction Name: {auctionDetails.NAME}</p>
-          <p>Auction Type: {auctionDetails.TYPE}</p>
-          {/* Display more auction details */}
+          <h1>{auctionDetails.NAME}</h1>
+          <p>Auction Type: {auctionDetails.TYPE}</p> 
         </>
       ) : (
         <p>Loading auction details...</p>
       )}
-
+      <hr />
       <div>
+
         <h2>Navigation</h2>
         <button onClick={handleNavigateToPlayers}>Players</button>
         <button onClick={handleNavigateToTeams}>Teams</button>

@@ -1,42 +1,81 @@
 import React, { useState } from "react";
 import "../css/register.css";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
+import Cookies from "js-cookie";
 const Register = () => {
+    const navigate = useNavigate();
     const [user, setUser] = useState({
         name: "",
         email: "",
         password: "",
         reEnterPassword: "",
-        role: "" // Add role state
+        role: "", // Add role state
+        playingRole: ""
     });
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setUser({
             ...user,
-            [name]: value
+            [name]: value,
+            // playingRole: value
         });
+        console.log(user);
     };
 
     const handleRoleChange = (e) => {
+        const selectedRole= e.target.value;
         setUser({
             ...user,
-            role: e.target.value
+            role: selectedRole
         });
+        if (selectedRole === "player") {
+            setUser({
+                ...user,
+                playingRole: "",
+                role: selectedRole
+                });
+        }
     };
 
     const handleRegister = () => {
+        
+
         console.log("User", user);
         // Perform registration logic here
-        const { name, email, password, reEnterPassword, role } = user;
-        if (name && email && password== reEnterPassword && role) {
+        const { name, email, password, reEnterPassword, role, playingRole } = user;
+        // if(role === "player" && playingRole !== "") {
+        if (name && email && password== reEnterPassword && role ) {
             axios
                 .post("http://localhost:9002/register", user)
                 .then((res) => {
                     // alert(res.data.message);
                     //alert("Registration successful"); or alert the error
+                        console.log()
                     if (res.data.message === "Registration successful") {
+                        console.log("HELLO");
+                        Cookies.set("userInfo", JSON.stringify(res.data.user), {
+                            expires: 3
+                        });
+
+                        setUser(res.data.user);
+
                         alert("Registration successful");
+                        const id = res.data.user.ID;
+                        if (role === "admin") {
+                            navigate("/homepage");
+                        }
+                        else if (role === "team") {
+                            navigate(`/team/${id}`);
+                        }
+                        else if (role === "player") {
+                            navigate(`/player/${id}`);
+                        }
+                        else if (role === "bidmanager") {
+                            navigate(`/bidmanager/${id}`);
+                        }
+                        
                     }
                     else {
                         alert("Registration failed");
@@ -47,7 +86,9 @@ const Register = () => {
                     console.log(err);
                 });
         }
+    
     };
+
 
     return (
         <div className="register">
@@ -59,6 +100,7 @@ const Register = () => {
                 placeholder="Your Name"
                 onChange={handleChange}
             />
+
             <input
                 type="text"
                 name="email"
@@ -88,12 +130,22 @@ const Register = () => {
                 <option value="player">Player</option>
                 <option value="bidmanager">Bid Manager</option>
             </select>
-
+            {user.role === "player" &&(
+                <input
+                    type="text"
+                    name="playingRole"
+                    value={user.playingRole}
+                    placeholder="Your Playing Role"
+                    onChange={handleChange}
+                />
+            )}
             <div className="button" onClick={handleRegister}>
                 Register
             </div>
             <div>or</div>
-            <div className="button">Login</div>
+            {/* <div className="button" onClick ={Navigate}>Login</div> */}
+            
+            <div className="button" onClick={() => navigate('/login')}> Login</div>
         </div>
     );
 };

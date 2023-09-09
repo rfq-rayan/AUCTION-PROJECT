@@ -5,6 +5,7 @@
     box-shadow: 0 2px 4px rgb(0 0 0 / 10%), 0 8px 16px rgb(0 0 0 / 10%);
     border-radius: 8px;
     padding: 1rem;
+    align-content: center;
     align-items: center;
     text-align: center;
 }
@@ -14,6 +15,7 @@
     border: 2px solid #dddfe2;
     outline: none;
     color: #1d2129;
+    justify-content: center;
     margin: 0.5rem 0;
     padding: 0.5rem 0.75rem;
     width: 92%;

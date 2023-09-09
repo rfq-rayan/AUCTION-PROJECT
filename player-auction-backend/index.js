@@ -22,9 +22,9 @@ app.post("/login", async (req, res) => {
         const result = await loginUser(email, password, role);
         if (result) {
             const userInfo = await getUserInfo(role, email); // Fetch user information
-            console.log(userInfo);
+            ////console.log(userInfo);
             if (userInfo) {
-                // console.log("I am here");
+                // ////console.log("I am here");
                 res.json({ message: 'Login successful', user: userInfo }); // Change 'userInfo' to 'user'
             } else {
                 res.json({ message: 'User information not found' });
@@ -32,6 +32,20 @@ app.post("/login", async (req, res) => {
         } else {
             res.json({ message: 'User not found' });
         }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+app.get("/team", async (req, res) => {
+    const { teamId } = req.query;
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+        const teamQuery = `SELECT * FROM Team WHERE Id = :teamId`;
+        const teamResult = await connection.execute(teamQuery, { teamId });
+        const team = teamResult.rows[0];
+        connection.close();
+        res.json(team);
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'An error occurred' });
@@ -49,10 +63,37 @@ app.get("/players", async (req, res) => {
         res.status(500).json({ error: 'An error occurred' });
     }
 });
+// Fetch players that has status null or not accepted
 
-// Fetch players for a specific auction ID
-app.get("/auction/:id/players", async (req, res) => {
-    const auctionId = req.params.id;
+app.get("/playersInvitationsZone/:auctionId", async (req, res) => {
+    const auctionId = req.params.auctionId;
+    //////console.log(auctionId);
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        // SQL query to select players who have not accepted invitations for a specific auction
+        const sqlQuery = `
+        SELECT P.Id,(SELECT NAME FROM PLAYER WHERE ID = P.ID) NAME ,(SELECT AGE FROM PLAYER WHERE ID = P.ID) AGE,(SELECT PLAYING_ROLE FROM PLAYER WHERE ID = P.ID) PLAYING_ROLE,(SELECT COUNTRY FROM PLAYER WHERE ID = P.ID) COUNTRY,(SELECT PHOTO FROM PLAYER WHERE ID = P.ID) PHOTO,(SELECT STATUS FROM ASSIGN_NOTIFICATIONS_FOR_PLAYERS ANFP
+            WHERE ID = ANFP.PLAYER_ID AND ANFP.AUCTION_ID = :auctionId) STATUS
+        FROM PLAYER P
+        WHERE P.Id NOT IN
+        (SELECT PA.PLAYER_ID 
+        FROM PLAYER_IN_AUCTION PA
+        WHERE PA.AUCTION_ID = :auctionId)`;
+
+        const result = await connection.execute(sqlQuery, { auctionId });
+
+        connection.close();
+
+        res.json(result.rows);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+app.get("/auctionPlayers/:auctionId", async (req, res) => {
+    const auctionId = req.params.auctionId;
+
     try {
         const connection = await oracledb.getConnection(dbConfig);
 
@@ -62,27 +103,290 @@ app.get("/auction/:id/players", async (req, res) => {
             JOIN Player_In_Auction pa ON p.Id = pa.Player_Id
             WHERE pa.Auction_Id = :auctionId
         `;
-        // console.log(`Auction ID: ${auctionId}`);
+
         const playersResult = await connection.execute(playersQuery, { auctionId });
         const players = playersResult.rows;
-        if(playersResult.rows.length > 0){
-            console.log( playersResult.rows);
-            console.log(`currentplayers: ${playersResult.rows[0].NAME}`);
-        }
-        else{
-            console.log("No players found");
-        }
 
         connection.close();
 
         res.json(players);
-        console.log(players);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+app.get("/teamsInvitationsZone/:auctionId", async (req, res) => {
+    const auctionId = req.params.auctionId;
+    console.log(auctionId);
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        //SQL query to select players who have not accepted invitations
+        const sqlQuery = `SELECT t.*, anft.Status AS STATUS
+        FROM Team t
+        LEFT JOIN Assign_Notifications_For_Teams anft ON t.Id = anft.team_Id
+        WHERE t.Id NOT IN (
+        SELECT ta.team_Id
+        FROM Team_In_Auction ta
+        WHERE ta.Auction_Id = :auctionId)
+        ORDER BY t.Id
+    
+    `;
+         
+
+        const result = await connection.execute(sqlQuery, { auctionId });
+        // console.log(result.rows);
+        connection.close();
+
+        res.json(result.rows);
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'An error occurred' });
     }
 });
 
+
+// Endpoint to assign a player to an auction and send a notification
+// Endpoint to assign a player to an auction and send a notification
+app.post("/assignPlayerToAuction", async (req, res) => {
+    const { playerId, auctionId, basePrice, category } = req.body;
+    // console.log(playerId, auctionId, basePrice, category);
+    try {
+        // Insert notification for the player with base price and category
+        await insertNotification(playerId, auctionId, basePrice, category);
+        res.json({ message: 'Notification sent to player' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+
+// Endpoint to assign a team to an auction and send a notification
+app.post("/assignTeamToAuction", async (req, res) => {
+    const { teamId, auctionId } = req.body;
+    console.log(`Team ID: ${teamId}, Auction ID: ${auctionId}`);
+    try {
+        // Insert notification for the team
+        await insertTeamNotification(teamId, auctionId);
+       
+        res.json({ message: 'Notification sent to team' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+
+// Function to insert notification for team
+async function insertTeamNotification(teamId, auctionId) {
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        // Generate a new notification ID based on the maximum existing ID
+        const notificationIdQuery = `
+            SELECT NVL(MAX(notification_id), 0) + 1 AS new_notification_id FROM Assign_Notifications_For_Teams
+        `;
+
+        const { rows } = await connection.execute(notificationIdQuery);
+        const newNotificationId = rows[0].NEW_NOTIFICATION_ID;
+
+        const notificationInsertQuery = `
+            INSERT INTO Assign_Notifications_For_Teams (notification_id, Team_Id, Auction_Id, Status)
+            VALUES (:notificationId, :teamId, :auctionId, 'pending')
+        `;
+
+        const bindVars = {
+            notificationId: { val: newNotificationId, dir: oracledb.BIND_IN },
+            teamId: { val: teamId, dir: oracledb.BIND_IN },
+            auctionId: { val: auctionId, dir: oracledb.BIND_IN }
+        };
+
+        await connection.execute(notificationInsertQuery, bindVars);
+        await connection.commit();
+
+        connection.close();
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
+}
+
+
+// To undo 
+
+app.delete("/undoTeamInvitation", async (req, res) => {
+    const { teamId, auctionId } = req.query;
+
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        // Check if the invitation exists and has a 'pending' status
+        const checkInvitationQuery = `
+            SELECT *
+            FROM Assign_Notifications_For_Teams
+            WHERE Team_Id = :teamId AND Auction_Id = :auctionId AND Status = 'pending'
+        `;
+
+        const checkResult = await connection.execute(checkInvitationQuery, { teamId, auctionId });
+
+        if (checkResult.rows.length === 0) {
+            // Invitation not found or not in 'pending' status
+            connection.close();
+            return res.status(400).json({ error: 'Invalid invitation or invitation is not pending' });
+        }
+
+        // Delete the invitation
+        const deleteInvitationQuery = `
+            DELETE FROM Assign_Notifications_For_Teams
+            WHERE Team_Id = :teamId AND Auction_Id = :auctionId
+        `;
+
+        await connection.execute(deleteInvitationQuery, { teamId, auctionId });
+
+        connection.commit();
+        connection.close();
+
+        res.json({ message: 'Invitation undone successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+
+app.delete("/undoPlayerInvitation", async (req, res) => {
+    //////console.log(req.query);
+    const { playerId, auctionId } = req.query;
+    //////console.log(playerId, auctionId);
+
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        // Check if the invitation exists and has a 'pending' status
+        const checkInvitationQuery = `
+            SELECT *
+            FROM Assign_Notifications_For_Players
+            WHERE Player_Id = :playerId AND Auction_Id = :auctionId AND Status = 'pending'
+        `;
+
+        const checkResult = await connection.execute(checkInvitationQuery, { playerId, auctionId });
+
+        if (checkResult.rows.length === 0) {
+            // Invitation not found or not in 'pending' status
+            connection.close();
+            return res.status(400).json({ error: 'Invalid invitation or invitation is not pending' });
+        }
+
+        // Delete the invitation
+        const deleteInvitationQuery = `
+            DELETE FROM Assign_Notifications_For_Players
+            WHERE Player_Id = :playerId AND Auction_Id = :auctionId
+        `;
+
+        await connection.execute(deleteInvitationQuery, { playerId, auctionId });
+
+        connection.commit();
+        connection.close();
+
+        res.json({ message: 'Invitation undone successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+
+// Function to insert notification for the player
+async function insertNotification(playerId, auctionId, basePrice, category) {
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+        console.log(playerId, auctionId, basePrice, category);
+        // Generate a new notification ID based on the maximum existing ID
+        const notificationIdQuery = `
+            SELECT NVL(MAX(notification_id), 0) + 1 AS new_notification_id FROM Assign_Notifications_For_Players
+        `;
+
+        const { rows } = await connection.execute(notificationIdQuery);
+        const newNotificationId = rows[0].NEW_NOTIFICATION_ID;
+
+        const notificationInsertQuery = `
+            INSERT INTO Assign_Notifications_For_Players (notification_id, Player_Id, Auction_Id, Base_Price, Category, Status)
+            VALUES (:notificationId, :playerId, :auctionId, :basePrice, :category, 'pending')
+        `;
+
+        const bindVars = {
+            notificationId: { val: newNotificationId, dir: oracledb.BIND_IN },
+            playerId: { val: playerId, dir: oracledb.BIND_IN },
+            auctionId: { val: auctionId, dir: oracledb.BIND_IN },
+            basePrice: { val: basePrice, dir: oracledb.BIND_IN },
+            category: { val: category, dir: oracledb.BIND_IN }
+        };
+        await connection.execute(notificationInsertQuery, bindVars);
+        console.log(bindVars);
+        await connection.commit();
+
+        connection.close(); 
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
+}
+
+
+// Fetch players for a specific auction ID
+app.get("/auction/:id/players", async (req, res) => {
+    const auctionId = req.params.id;//params is used to get the id from the url
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        const playersQuery = `
+            SELECT p.*,pa.BASE_PRICE,pa.CATEGORY
+            FROM Player p
+            JOIN Player_In_Auction pa ON p.Id = pa.Player_Id
+            WHERE pa.Auction_Id = :auctionId
+        `;
+        // //////console.log(`Auction ID: ${auctionId}`);
+        const playersResult = await connection.execute(playersQuery, { auctionId });
+        const players = playersResult.rows;
+        if(playersResult.rows.length > 0){
+            ////console.log( playersResult.rows);
+            ////console.log(`currentplayers: ${playersResult.rows[0].NAME}`);
+        }
+        else{
+            ////console.log("No players found");
+        }
+
+        connection.close();
+
+        res.json(players);
+        ////console.log(players);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+
+// Fetch teams for a specific auction ID
+app.get("/auction/:id/teams", async (req, res) => {
+    const auctionId = req.params.id;
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        const teamsQuery = `
+            SELECT t.*
+            FROM Team t
+            JOIN Team_In_Auction ta ON t.Id = ta.Team_Id
+            WHERE ta.Auction_Id = :auctionId
+        `;
+
+        const teamsResult = await connection.execute(teamsQuery, { auctionId });
+        const teams = teamsResult.rows;
+
+        connection.close();
+
+        res.json(teams);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
 app.get("/auctions", async (req, res) => {
     const { adminId } = req.query; // Assuming you pass the adminId as a query parameter
 
@@ -107,7 +411,7 @@ app.get("/auction/:id", async (req, res) => {
         
         // Query to fetch auction details based on the provided auctionId
         const auctionDetailsQuery = `
-            SELECT Id, Name, Type
+            SELECT Id, Name, Type, Auction_Status
             FROM Auction_Details
             WHERE Id = :auctionId
         `;
@@ -158,10 +462,10 @@ async function createAuction(name, type, adminId) {
         // check if auction already exists
         const verifyQuery = `SELECT COUNT(*) AS auction_count FROM Auction_Details WHERE Name = :name AND Type = :type AND Admin_Id = :adminId`;
         const verifyResult = await connection.execute(verifyQuery, { name, type, adminId });
-        // console.log(name, type, adminId);
+        // ////console.log(name, type, adminId);
         const auctionCount = verifyResult.rows[0].AUCTION_COUNT;
         if (auctionCount > 0) {
-            console.log('Auction already exists');
+            ////console.log('Auction already exists');
             return false;
         }
 
@@ -186,10 +490,10 @@ async function createAuction(name, type, adminId) {
             adminId: adminId
         };
         await connection.execute(insertQuery, bindVars);
-        console.log("Auction created");
+        ////console.log("Auction created");
         await connection.commit();
         connection.close();
-        // console.log(`Auction created with ID: ${generatedId}`);
+        // ////console.log(`Auction created with ID: ${generatedId}`);
         return true;
     } catch (error) {
         console.error(error);
@@ -207,9 +511,9 @@ async function getAuctions(adminId) {
             FROM Auction_Details
             WHERE Admin_Id = :adminId
         `;
-        console.log(adminId);
+        ////console.log(adminId);
         const auctionsResult = await connection.execute(auctionsQuery, { adminId });
-        console.log(auctionsResult.rows);
+        ////console.log(auctionsResult.rows);
 
         connection.close();
 
@@ -223,13 +527,18 @@ async function getAuctions(adminId) {
 
 
 app.post("/register", async (req, res) => {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, playingRole } = req.body;
 
     try {
-        const result = await registerUser(name, password, email, role);
+        const result = await registerUser(name, password, email, role, playingRole);
 
         if (result) {
-            res.json({ message: 'Registration successful' });
+            const userInfo = await getUserInfo(role, email);
+            if(userInfo){
+                res.json({ message: 'Registration successful', user: userInfo });
+            }
+
+            // res.json({ message: 'Registration successful' });
         } else {
             // res.status(500).json({ error: 'Registration failed' });
             res.json({ message: 'Registration failed' });
@@ -243,7 +552,7 @@ app.post("/register", async (req, res) => {
 // Assuming you have your app and database configuration set up
 
 app.delete("/deleteAuction/:id", async (req, res) => {
-    console.log(req.params.id)
+    ////console.log(req.params.id)
     const auctionId = req.params.id;
     try {
         const connection = await oracledb.getConnection(dbConfig);
@@ -280,6 +589,28 @@ app.delete("/auction/:auctionId/players/:playerId", async (req, res) => {
         await connection.commit();
         connection.close();
         res.json({ message: 'Player removed successfully' });
+        console.log("Player removed successfully");
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+
+// Delete a team from an auction
+app.delete("/auction/:auctionId/teams/:teamId", async (req, res) => {
+    const auctionId = req.params.auctionId;
+    const teamId = req.params.teamId;
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+        const removeTeamQuery = `DELETE FROM Team_In_Auction WHERE Auction_Id = :auctionId AND Team_Id = :teamId`;
+        const bindVars = {
+            auctionId: auctionId,
+            teamId: teamId
+        };
+        await connection.execute(removeTeamQuery, bindVars);
+        await connection.commit();
+        connection.close();
+        res.json({ message: 'Team removed successfully' });
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'An error occurred' });
@@ -291,38 +622,48 @@ app.post("/assignPlayerToAuction/:auctionId/:playerId", async (req, res) => {
     const playerId = req.params.playerId;
     try {
         await insertNotification(playerId, auctionId, basePrice, category);
-
-        res.json({ message: 'Notification sent to player' });
+        res.json({ message: 'Player invited to auction' });
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'An error occurred' });
     }
 });
-async function insertNotification(playerId, auctionId, basePrice, category) {
-    try {
-        const connection = await oracledb.getConnection(dbConfig);
+// Function to insert notification for the player
+// async function insertNotification(playerId, auctionId, basePrice, category) {
+//     try {
+//         const connection = await oracledb.getConnection(dbConfig);
 
-        const notificationQuery = `
-            INSERT INTO Assign_Notifications_For_Players (Player_Id, Auction_Id, Base_Price, Category, Status)
-            VALUES (:playerId, :auctionId, :basePrice, :category, 'pending')
-        `;
+//         // Generate a new notification ID based on the maximum existing ID
+//         const notificationIdQuery = `
+//             SELECT NVL(MAX(notification_id), 0) + 1 AS new_notification_id FROM Assign_Notifications_For_Players
+//         `;
 
-        const bindVars = {
-            playerId: { val: playerId, dir: oracledb.BIND_IN },
-            auctionId: { val: auctionId, dir: oracledb.BIND_IN },
-            basePrice: { val: basePrice, dir: oracledb.BIND_IN },
-            category: { val: category, dir: oracledb.BIND_IN }
-        };
+//         const { rows } = await connection.execute(notificationIdQuery);
+//         const newNotificationId = rows[0].NEW_NOTIFICATION_ID;
 
-        await connection.execute(notificationQuery, bindVars);
-        await connection.commit();
-        // return true;
-        connection.close();
-    } catch (error) {
-        console.error(error);
-        throw error;
-    }
-}
+//         const notificationInsertQuery = `
+//             INSERT INTO Assign_Notifications_For_Players (notification_id, Player_Id, Auction_Id, Base_Price, Category, Status)
+//             VALUES (:notificationId, :playerId, :auctionId, :basePrice, :category, 'pending')
+//         `;
+
+//         const bindVars = {
+//             notificationId: { val: newNotificationId, dir: oracledb.BIND_IN },
+//             playerId: { val: playerId, dir: oracledb.BIND_IN },
+//             auctionId: { val: auctionId, dir: oracledb.BIND_IN },
+//             basePrice: { val: basePrice, dir: oracledb.BIND_IN },
+//             category: { val: category, dir: oracledb.BIND_IN }
+//         };
+
+//         await connection.execute(notificationInsertQuery, bindVars);
+//         await connection.commit();
+
+//         connection.close();
+//     } catch (error) {
+//         console.error(error);
+//         throw error;
+//     }
+// }
+
 // add loginuser code here
 async function loginUser(email, password, role) {
     try {
@@ -354,12 +695,12 @@ async function loginUser(email, password, role) {
         const userCount = loginResult.rows[0].USER_COUNT;
         connection.close();
         if (userCount > 0) {
-            // console.log('User found');
+            // ////console.log('User found');
             return true;
             // res.send({message: 'Login successful', user: user})
         }
         else {
-            // console.log('Invalid credentials');
+            // ////console.log('Invalid credentials');
             return false;
             // res.send({message: 'Invalid credentials'})
         }
@@ -400,8 +741,8 @@ async function getUserInfo(role, email) {
         // add table name to the user info
         userInfo.Role = tableName;
 
-        console.log(userInfo);
-        console.log("Iaaa");
+        ////console.log(userInfo);
+        // ////console.log("Iaaa");
 
         connection.close();
         return userInfo;
@@ -414,12 +755,12 @@ async function getUserInfo(role, email) {
 
 // ...
 
-async function registerUser(name, password, email, role) {
+async function registerUser(name, password, email, role, playingRole) {
     try {
         let tableName = '';
         let additionalData = {};
 
-        console.log(role);
+        ////console.log(role);
 
         // Determine the table name and additional data based on the selected role
         switch (role) {
@@ -432,20 +773,21 @@ async function registerUser(name, password, email, role) {
                 // Additional data for the Team table
                 additionalData.Mail = email;
                 additionalData.Logo = ''; // Set your default value here
-                additionalData.Taken_Player = 0; // Set your default value here
-                additionalData.Total_Player = 0; // Set your default value here
-                additionalData.Available_Fund = 0.0; // Set your default value here
-                additionalData.Total_Fund = 0.0; // Set your default value here
+                // additionalData.Taken_Player = 0; // Set your default value here
+                // additionalData.Total_Player = 0; // Set your default value here
+                // additionalData.Available_Fund = 0.0; // Set your default value here
+                // additionalData.Total_Fund = 0.0; // Set your default value here
 
                 break;
             case 'player':
                 tableName = 'Player';
                 // Additional data for the Player table
-                additionalData.Base_Price = 0.0; // Set your default value here
-                additionalData.Category = ''; // Set your default value here
+                // additionalData.Base_Price = 0.0; // Set your default value here
+                // additionalData.Category = ''; // Set your default value here
                 additionalData.Photo = ''; // Set your default value here
-                additionalData.Status = ''; // Set your default value here
-                additionalData.Playing_Role = ''; // Set your default value here
+                // additionalData.Status = ''; // Set your default value here
+                // additionalData.Playing_Role = ''; // Set your default value here
+                additionalData.playing_role = playingRole;
                 additionalData.Mail = email;
                 break;
 
@@ -474,12 +816,12 @@ async function registerUser(name, password, email, role) {
         const verifyResult = await connection.execute(verifyQuery, { email });
         const userCount = verifyResult.rows[0].USER_COUNT;
         if (userCount > 0) {
-            console.log('User already exists');
+            ////console.log('User already exists');
 
             return false;
         }
 
-        console.log("IN");
+        ////console.log("IN");
         // Construct the INSERT query
         // Construct the INSERT query
         const insertQuery = `INSERT INTO ${tableName} (ID, Name, Password, ${Object.keys(additionalData).join(', ')})
@@ -494,14 +836,14 @@ async function registerUser(name, password, email, role) {
         };
 
         // Execute the INSERT query
-        console.log('User registered');
+        ////console.log('User registered');
         await connection.execute(insertQuery, bindVars);
         //commit the transaction
         await connection.commit();
 
         connection.close();
 
-        console.log(`User registered with ID: ${generatedId}`);
+        ////console.log(`User registered with ID: ${generatedId}`);
 
         return true;
     } catch (error) {
@@ -512,15 +854,387 @@ async function registerUser(name, password, email, role) {
 
 // ...
 
+// Endpoint to fetch notifications for a specific player
+app.get('/getNotifications', async (req, res) => {
+    const playerId = req.query.playerId;
+    ////console.log(playerId);
+    try {
+      const notifications = await getAllNotifications(playerId);
+      res.json(notifications);
+      ////console.log(notifications);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'An error occurred' });
+    }
+});
+
+// Function to fetch notifications for a specific player
+
+  async function getAllNotifications(playerId) {
+    try {
+      const connection = await oracledb.getConnection(dbConfig);
+  
+      const notificationQuery = `
+        SELECT Notification_Id, Auction_Id, Base_Price, Category, Status
+        FROM Assign_Notifications_For_Players
+        WHERE Player_Id = :playerId AND Status = 'pending'
+      `;
+  
+      const bindVars = {
+        playerId: { val: playerId },
+      };
+  
+      const result = await connection.execute(notificationQuery, bindVars);
+      connection.close();
+  
+      const notifications = result.rows.map((row) => ({
+        notificationID: row.NOTIFICATION_ID,
+        auctionId: row.AUCTION_ID,
+        basePrice: row.BASE_PRICE,
+        category: row.CATEGORY,
+        status: row.STATUS,
+      }));
+    //   ////console.log(notifications);
+      return notifications;
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
+  }
+//to get notification of a player and a particular auction
+app.get('/getNotification', async (req, res) => {
+    const { playerId, auctionId } = req.query;
+
+    try {
+        const notificationInfo = await getNotificationInfo(playerId, auctionId);
+        if (notificationInfo) {
+            res.json(notificationInfo);
+        } else {
+            res.status(404).json({ error: 'Notification not found' });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+
+// Function to fetch notification for a specific player and auction
+async function getNotificationInfo(playerId, auctionId) {
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        const notificationQuery = `
+            SELECT Base_Price, Category
+            FROM Assign_Notifications_For_Players
+            WHERE Player_Id = :playerId AND Auction_Id = :auctionId
+        `;
+
+        const bindVars = {
+            playerId: { val: playerId },
+            auctionId: { val: auctionId }
+        };
+
+        const result = await connection.execute(notificationQuery, bindVars);
+        connection.close();
+
+        if (result.rows.length > 0) {
+            return {
+                basePrice: result.rows[0].BASE_PRICE,
+                category: result.rows[0].CATEGORY
+            };
+        } else {
+            return null;
+        }
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
+}
+
+
+app.get('/getTeamNotifications', async (req, res) => {
+    const teamId = req.query.teamId;
+    // ////console.log(teamId);
+    try {
+        const notifications = await getAllTeamNotifications(teamId);
+        res.json(notifications);
+        // ////console.log(notifications);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+
+async function getAllTeamNotifications(teamId) {
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+        ////console.log(teamId)
+        const notificationQuery = `
+            SELECT Notification_Id, Auction_Id, Status
+            FROM Assign_Notifications_For_Teams
+            WHERE Team_Id = :teamId AND Status = 'pending'
+        `;
+        // ////console.log(teamId);
+        const bindVars = {
+            teamId: { val: teamId },
+        };
+
+        const result = await connection.execute(notificationQuery, bindVars);
+        connection.close();
+
+        const notifications = result.rows.map((row) => ({
+            notificationID: row.NOTIFICATION_ID,
+            auctionId: row.AUCTION_ID,
+            status: row.STATUS,
+        }));
+        // ////console.log(notifications);
+        return notifications;
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
+}
+
+// Endpoint to fetch notifications for a specific team 
+
+
+
+// Endpoint for players to respond to notifications
+app.post("/playerAssignmentResponse", async (req, res) => {
+    const { playerId, auctionId, response } = req.body;
+
+    try {
+        if (response === 'accept') {
+            const notification = await getNotificationInfo(playerId, auctionId);
+            if (notification) {
+                // Insert player into Player_In_Auction table with base price and category
+                await insertPlayerInAuction(playerId, auctionId, notification.basePrice, notification.category);
+                // Update notification status to 'accepted'
+                await updateNotificationStatus(playerId, auctionId, 'accepted');
+                res.json({ message: 'Player accepted invitation and inserted into auction' });
+            } else {
+                res.status(400).json({ error: 'Invalid notification' });
+            }
+        } else if (response === 'decline') {
+            // Update notification status to 'declined'
+            await updateNotificationStatus(playerId, auctionId, 'declined');
+            res.json({ message: 'Player declined invitation' });
+        } else {
+            res.status(400).json({ error: 'Invalid response' });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+
+
+// Function to insert player into Player_In_Auction table
+async function insertPlayerInAuction(playerId, auctionId, basePrice, category) {
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        const insertQuery = `
+            INSERT INTO Player_In_Auction (Player_Id, Auction_Id, Base_Price, Category, Status)
+            VALUES (:playerId, :auctionId, :basePrice, :category, 'available')
+        `;
+
+        const bindVars = {
+            playerId: { val: playerId },
+            auctionId: { val: auctionId },
+            basePrice: { val: basePrice },
+            category: { val: category }
+        };
+
+        await connection.execute(insertQuery, bindVars);
+        await connection.commit();
+
+        connection.close();
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
+}
+
+
+// Function to update notification status
+async function updateNotificationStatus(playerId, auctionId, status) {
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        const updateQuery = `
+            UPDATE Assign_Notifications_For_Players
+            SET Status = :status
+            WHERE Player_Id = :playerId AND Auction_Id = :auctionId
+        `;
+
+        const bindVars = {
+            status: { val: status },
+            playerId: { val: playerId },
+            auctionId: { val: auctionId }
+        };
+
+        await connection.execute(updateQuery, bindVars);
+        await connection.commit();
+
+        connection.close();
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
+}
+
+
+
+app.get("/pastAuctions", async (req, res) => {
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        // Query to fetch past auctions
+        const pastAuctionsQuery = `
+            SELECT *
+            FROM Auction_Details
+            WHERE Auction_Status = 'Past'
+        `;
+
+        const result = await connection.execute(pastAuctionsQuery, {}, { outFormat: oracledb.OUT_FORMAT_OBJECT });
+
+        connection.close();
+
+        res.json(result.rows);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+
+
+app.get("/currentAuctions", async (req, res) => {
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        // Query to fetch current auctions
+        const getCurrentAuctionsQuery = `
+            SELECT Id, Name, Type, Auction_Status
+            FROM Auction_Details
+            WHERE Auction_Status = 'Current'
+        `;
+
+        const result = await connection.execute(getCurrentAuctionsQuery, {}, { outFormat: oracledb.OUT_FORMAT_OBJECT });
+
+        connection.close();
+
+        // Respond with the list of current auctions
+        res.json(result.rows);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+
+
+app.get("/upcomingAuctions", async (req, res) => {
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        // Query to fetch future auctions
+        const futureAuctionsQuery = `
+            SELECT Id, Name, Type, Auction_Status
+            FROM Auction_Details
+            WHERE Auction_Status = 'Future'
+        `;
+
+        const result = await connection.execute(futureAuctionsQuery, {}, { outFormat: oracledb.OUT_FORMAT_OBJECT });
+
+        connection.close();
+
+        res.json(result.rows);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+
+
+
+app.put("/updateAuctionStatus/:id", async (req, res) => {
+    const auctionId = req.params.id;
+
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        // Check if the auction status is currently "Future" or "Current"
+        const checkAuctionStatusQuery = `
+            SELECT Auction_Status
+            FROM Auction_Details
+            WHERE Id = :auctionId
+        `;
+
+        const statusResult = await connection.execute(checkAuctionStatusQuery, { auctionId });
+
+        if (statusResult.rows.length === 0) {
+            connection.close();
+            return res.status(404).json({ error: 'Auction not found' });
+        }
+
+        const currentStatus = statusResult.rows[0]['AUCTION_STATUS'];
+
+        // Call the PL/SQL function to update the auction status based on the current status
+        let updateStatusFunction;
+        if (currentStatus === 'Future') {
+            updateStatusFunction = `BEGIN :result := UpdateAuctionStatusToCurrent(:auctionId); END;`;
+        } else if (currentStatus === 'Current') {
+
+            updateStatusFunction = `BEGIN :result := UpdateAuctionStatusToPast(:auctionId); END;`;
+        } else {
+            connection.close();
+            return res.status(400).json({ error: 'Invalid auction status' });
+        }
+
+        const updateStatusBinds = {
+            result: { type: oracledb.NUMBER, dir: oracledb.BIND_OUT },
+            auctionId: auctionId,
+        };
+
+        const updateStatusResult = await connection.execute(updateStatusFunction, updateStatusBinds);
+
+        if (updateStatusResult.outBinds.result === 1) {
+            // Commit the transaction
+            await connection.commit();
+
+            connection.close();
+
+            // Respond with success
+            res.json({ message: `Auction status updated to "${currentStatus === 'Future' ? 'Current' : 'Past'}" successfully` });
+        } else {
+            // Transaction failed
+            connection.close();
+            res.status(500).json({ error: 'Failed to update auction status' });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+
+
+
+
+
+
+
+
+
+
 app.listen(9002, async () => {
     try {
         const connection = await oracledb.getConnection(dbConfig);
-        console.log('DB connected');
+        ////console.log('DB connected');
         connection.close();
     } catch (error) {
-        console.log('Error while establishing connection');
+        ////console.log('Error while establishing connection');
         console.error(error);
     }
 
-    console.log('Server started on port 9002');
+    ////console.log('Server started on port 9002');
 });
