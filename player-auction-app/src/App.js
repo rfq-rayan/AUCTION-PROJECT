@@ -11,8 +11,13 @@ import BiddingArena from './biddingarena/biddingarena'; // Import your BiddingAr
 import TeamLogin from './teamlogin/teamlogin'; // Import your TeamLogin component
 import PlayerLogin from './playerlogin/playerlogin'; // Import your PlayerLogin component
 import BidManagerLogin from './bidmanagerlogin/bidmanagerlogin'; // Import your BidManagerLogin component
+// import BiddingArena from './biddingarena/biddingarena';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-
+import TeamAuctionDetails from './auctiondetails/teamauctiondetails';
+import IPlayers from './players/iPlayers';
+import ITeams from './teams/iteams';
+import BidManagerAuctionDetails from './auctiondetails/bidmanagerauctiondetails';
+import ManageBid from './biddingarena/managebid';
 function App() {
   const [userInfo, setUserInfo] = useState(null);
   const [auctionID, setAuctionID] = useState(null);
@@ -33,6 +38,13 @@ function App() {
             <Route path="/team/:id" element={<TeamLogin />} />
             <Route path="/player/:id" element={<PlayerLogin />} />
             <Route path="/bidmanager/:id" element={<BidManagerLogin />} />
+            <Route path = "/auction/:id/bidding-arena" element={<BiddingArena />} />
+            <Route path = "/team/:id/auction/:aucttionId/" element={<TeamAuctionDetails />} />
+            <Route path = "/auction/:auctionId/team/:teamId/bidding-arena" element={<BiddingArena />} />
+            <Route path = "/auction/:id/iplayers" element={<IPlayers />} />
+            <Route path = "/auction/:id/iteams" element={<ITeams />} />
+            <Route path = "/bidmanager/:id/auction/:auctionId" element={<BidManagerAuctionDetails />} />
+            <Route path = "/auction/:id/bidmanager/:bidManagerId/managebid" element={<ManageBid />} />
           {/* </Route> */}
         </Routes>
       </Router>

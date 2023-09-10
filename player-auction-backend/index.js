@@ -271,7 +271,7 @@ app.delete("/undoTeamInvitation", async (req, res) => {
 
         const checkResult = await connection.execute(checkInvitationQuery, { teamId, auctionId });
 
-        if (checkResult.rows.length === 0) {
+        if (checkResult.rows.length == 0) {
             // Invitation not found or not in 'pending' status
             connection.close();
             return res.status(400).json({ error: 'Invalid invitation or invitation is not pending' });
@@ -312,7 +312,7 @@ app.delete("/undoPlayerInvitation", async (req, res) => {
 
         const checkResult = await connection.execute(checkInvitationQuery, { playerId, auctionId });
 
-        if (checkResult.rows.length === 0) {
+        if (checkResult.rows.length == 0) {
             // Invitation not found or not in 'pending' status
             connection.close();
             return res.status(400).json({ error: 'Invalid invitation or invitation is not pending' });
@@ -699,7 +699,6 @@ app.post("/register", async (req, res) => {
         res.status(500).json({ error: 'An error occurred' });
     }
 });
-
 // Assuming you have your app and database configuration set up
 
 app.delete("/deleteAuction/:id", async (req, res) => {
@@ -767,6 +766,27 @@ app.delete("/auction/:auctionId/teams/:teamId", async (req, res) => {
         res.status(500).json({ error: 'An error occurred' });
     }
 });
+// Delete a bid manager from an auction
+app.delete("/auction/:auctionId/bidManagers/:bidManagerId", async (req, res) => {
+    const auctionId = req.params.auctionId;
+    const bidManagerId = req.params.bidManagerId;
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+        const removeBidManagerQuery = `DELETE FROM Bid_Manager_In_Auction WHERE Auction_Id = :auctionId AND Bid_Manager_Id = :bidManagerId`;
+        const bindVars = {
+            auctionId: auctionId,
+            bidManagerId: bidManagerId
+        };
+        await connection.execute(removeBidManagerQuery, bindVars);
+        await connection.commit();
+        connection.close();
+        res.json({ message: 'Bid Manager removed successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+
 // Assign a player to an auction
 app.post("/assignPlayerToAuction", async (req, res) => {
     const { playerId, auctionId, basePrice, category } = req.body;
@@ -1670,6 +1690,794 @@ app.delete("/undoBidManagerInvitation", async (req, res) => {
         connection.close();
 
         res.json({ message: 'Invitation undone successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+
+// Endpoint to get bid managers in a specific auction
+app.get("/auctionBidManagers/:auctionId", async (req, res) => {
+    const auctionId = req.params.auctionId;
+
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        const bidManagersQuery = `
+            SELECT bm.*
+            FROM Bid_Manager bm
+            JOIN Bid_Manager_In_Auction bma ON bm.Id = bma.Bid_Manager_Id
+            WHERE bma.Auction_Id = :auctionId
+        `;
+
+        const bidManagersResult = await connection.execute(bidManagersQuery, { auctionId });
+        const bidManagers = bidManagersResult.rows;
+
+        connection.close();
+        console.log(bidManagers);
+        res.json(bidManagers);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+
+
+// Endpoint for bid managers to respond to notifications
+app.post("/BidManagerAuctionsignmentResponse", async (req, res) => {
+    const { bidManagerId, auctionId, response } = req.body;
+
+    try {
+        if (response === 'accept') {
+            const notification = await getNotificationInfoForBidManager(bidManagerId, auctionId);
+            if (notification) {
+            // Update bid manager notification status to 'accepted'
+            await updateBidManagerNotificationStatus(bidManagerId, auctionId, 'accepted');
+
+            // Insert bid manager into Bid_Manager_In_Auction table
+            await insertBidManagerInAuction(bidManagerId, auctionId);
+
+            res.json({ message: 'Bid manager accepted invitation and inserted into auction' });
+            }
+        } else if (response === 'decline') {
+            // Update bid manager notification status to 'declined'
+            await updateBidManagerNotificationStatus(bidManagerId, auctionId, 'declined');
+
+            res.json({ message: 'Bid manager declined invitation' });
+        } else {
+            res.status(400).json({ error: 'Invalid response' });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+
+
+async function getNotificationInfoForBidManager(bidManagerId, auctionId) {
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        const notificationQuery = `
+        SELECT Auction_Id, 
+        (SELECT Name FROM Auction_Details WHERE Id = :auctionId) AS Auction_Name
+ FROM Assign_Notifications_For_BidManagers
+ WHERE Bid_Manager_Id = :bidManagerId AND Auction_Id = :auctionId
+`;
+
+        const bindVars = {
+            bidManagerId: { val: bidManagerId },
+            auctionId: { val: auctionId }
+        };
+
+        const result = await connection.execute(notificationQuery, bindVars);
+        connection.close();
+
+        if (result.rows.length > 0) {
+            return {
+                auctionName: result.rows[0].AUCTION_NAME
+            };
+            
+        } else {
+            return null;
+        }
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
+}
+
+
+// Function to update bid manager notification status
+async function updateBidManagerNotificationStatus(bidManagerId, auctionId, status) {
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        const updateQuery = `
+            UPDATE Assign_Notifications_For_BidManagers
+            SET Status = :status
+            WHERE Bid_Manager_Id = :bidManagerId AND Auction_Id = :auctionId
+        `;
+
+        const bindVars = {
+            status: { val: status },
+            bidManagerId: { val: bidManagerId },
+            auctionId: { val: auctionId }
+        };
+
+        await connection.execute(updateQuery, bindVars);
+        await connection.commit();
+
+        connection.close();
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
+}
+
+// Function to insert bid manager into Bid_Manager_In_Auction table
+async function insertBidManagerInAuction(bidManagerId, auctionId) {
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        const insertQuery = `
+            INSERT INTO Bid_Manager_In_Auction (Bid_Manager_Id, Auction_Id)
+            VALUES (:bidManagerId, :auctionId)
+        `;
+
+        const bindVars = {
+            bidManagerId: { val: bidManagerId },
+            auctionId: { val: auctionId }
+        };
+
+        await connection.execute(insertQuery, bindVars);
+        await connection.commit();
+
+        connection.close();
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
+}
+
+//////////////BIDDING ER KAAJ SHURU/////////////////////
+
+//info about the player who is now currently in that bid
+app.get("/currentBiddingPlayers/:auctionId", async (req, res) => {
+    const auctionId = req.params.auctionId;
+    console.log(auctionId);
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        // Query to fetch players who are currently in bid for the specified auction
+        const currentBiddingPlayersQuery = `
+            SELECT
+                p.Id AS Player_Id,
+                p.Name AS Player_Name,
+                p.Age AS Player_Age,
+                p.Country AS Player_Country,
+                p.Photo AS Player_Photo,
+                b.Bidding_Price AS Bid_Price,
+                pia.auction_id,
+                (SELECT t.Name FROM Team t WHERE t.Id = b.Team_Id) AS Team_Name
+            FROM Player p
+            INNER JOIN Player_In_Auction pia ON p.Id = pia.Player_Id
+            INNER JOIN Bid b ON p.Id = b.Player_Id
+            WHERE pia.Auction_Id = :auctionId
+              AND pia.Status = 'currently in bid'
+        `;
+
+        const playersResult = await connection.execute(currentBiddingPlayersQuery, { auctionId });
+        console.log(playersResult.rows);
+        connection.close();
+
+        res.json(playersResult.rows);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+
+
+//when a team will log in then he will see the auction details of the auction he has been assigned for
+// Define a route with the teamId as a URL parameter
+app.get("/teamAuctions", async (req, res) => {
+    // Access the teamId from the URL parameters
+    const teamId = req.query.teamId;
+
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        // Query to fetch auctions assigned to the team
+        const getAuctionsForTeamQuery = `
+            SELECT a.*
+            FROM Auction_Details a
+            JOIN Team_In_Auction t
+            ON a.Id = t.Auction_Id
+            WHERE t.Team_Id = :teamId
+        `;
+
+        const auctionsResult = await connection.execute(getAuctionsForTeamQuery, { teamId });
+
+        connection.close();
+        console.log(auctionsResult.rows);
+        res.json(auctionsResult.rows);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+
+// Create a route to fetch auction details for a particular bid manager.
+//when a bid manager will log in then he will see the auction details of the auction he has been assigned for
+app.get("/bidManagerAuctions", async (req, res) => {
+    // Access the bidManagerId from the URL parameters
+    const bidManagerId = req.query.bidManagerId;
+    console.log(bidManagerId);
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        // Query to fetch auctions assigned to the bid manager
+        const getAuctionsForBidManagerQuery = `
+            SELECT a.*
+            FROM Auction_Details a
+            JOIN Bid_Manager_In_Auction b
+            ON a.Id = b.Auction_Id
+            WHERE b.Bid_Manager_Id = :bidManagerId
+        `;
+
+        const auctionsResult = await connection.execute(getAuctionsForBidManagerQuery, { bidManagerId });
+        console.log(auctionsResult.rows);
+        connection.close();
+
+        res.json(auctionsResult.rows);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+
+
+//to see the players beside which we can put the add to bid button
+app.get("/SendToBidZone/:auctionId", async (req, res) => {
+    const auctionId = req.params.auctionId;
+
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        // Query to fetch players with status "unsold" or "available" in the specified auction
+        const getPlayersQuery = `
+        SELECT 
+            (SELECT NAME FROM PLAYER WHERE ID = p.PLAYER_ID) NAME,
+            (SELECT PLAYING_ROLE FROM PLAYER WHERE ID = p.PLAYER_ID) PLAYING_ROLE,
+            (SELECT AGE FROM PLAYER WHERE ID = p.PLAYER_ID) AGE,
+            (SELECT COUNTRY FROM PLAYER WHERE ID = p.PLAYER_ID) COUNTRY, p.PLAYER_ID, p.BASE_PRICE, p.CATEGORY,p.STATUS
+        FROM Player_In_Auction p
+        WHERE p.Auction_Id = :auctionId
+          AND p.Status IN ('unsold', 'available')
+        `;
+
+        const playersResult = await connection.execute(getPlayersQuery, { auctionId });
+
+        connection.close();
+
+        res.json(playersResult.rows);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+
+
+
+// Endpoint to add a player to bidding and we are additionally checking if the bid manager is associated with that particular auction
+app.post("/addPlayerToBid", async (req, res) => {
+    const { bidManagerId, auctionId, playerId } = req.body;
+
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        // Check if the bid manager is associated with the auction
+        const isBidManagerAssociatedQuery = `
+            SELECT 1
+            FROM Bid_Manager_In_Auction
+            WHERE Bid_Manager_Id = :bidManagerId AND Auction_Id = :auctionId
+        `;
+
+        const isBidManagerAssociatedResult = await connection.execute(isBidManagerAssociatedQuery, { bidManagerId, auctionId });
+
+        if (isBidManagerAssociatedResult.rows.length === 0) {
+            connection.close();
+            return res.status(400).json({ error: 'Bid manager is not associated with this auction' });
+        }
+
+
+
+
+        // Call the function to fetch and populate the Set
+        fetchAuctionAndPlayerIDsFromDatabase();
+
+        // Call the function to initialize the unsoldPlayers set
+        initializeUnsoldPlayersSet();
+
+        // Fetch the base price for the player from the Player_In_Auction table
+        const getPlayerBasePriceQuery = `
+            SELECT BASE_PRICE
+            FROM Player_In_Auction
+            WHERE Auction_Id = :auctionId AND Player_Id = :playerId
+        `;
+
+        const basePriceResult = await connection.execute(getPlayerBasePriceQuery, { auctionId, playerId });
+
+        if (basePriceResult.rows.length == 0) {
+            connection.close();
+            return res.status(400).json({ error: 'Player not found for this auction' });
+        }
+
+        const basePrice = basePriceResult.rows[0]['BASE_PRICE'];
+
+        // Assuming you have the basePrice now, proceed to insert the bid
+        await insertBid(bidManagerId, auctionId, playerId, basePrice);
+
+        connection.close();
+
+        // Call startPeriodicChecking to resume periodic checking
+        startPeriodicChecking();
+
+        res.json({ message: 'Player added to bidding successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+
+});
+
+
+async function insertBid(bidManagerId, auctionId, playerId, basePrice) {
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+
+        // Generate a new bid ID based on the maximum existing ID
+        const bidIdQuery = `
+            SELECT NVL(MAX(Id), 0) + 1 AS new_bid_id FROM Bid
+        `;
+
+        const { rows } = await connection.execute(bidIdQuery);
+        const newBidId = rows[0].NEW_BID_ID;
+
+        // Calculate the created_at and ended_at timestamps
+        const currentTimestamp = new Date();
+        const endedAtTimestamp = new Date(currentTimestamp);
+        endedAtTimestamp.setMinutes(endedAtTimestamp.getMinutes() + 5); // Add 5 minutes
+
+        const insertBidQuery = `
+            INSERT INTO Bid (Id, Bid_Manager_Id, Auction_Id, Player_Id, Bidding_Price, Created_At, Ended_At)
+            VALUES (:bidId, :bidManagerId, :auctionId, :playerId, :basePrice, :createdAt, :endedAt)
+        `;
+
+        const bindVars = {
+            bidId: { val: newBidId, dir: oracledb.BIND_IN },
+            bidManagerId: { val: bidManagerId, dir: oracledb.BIND_IN },
+            auctionId: { val: auctionId, dir: oracledb.BIND_IN },
+            playerId: { val: playerId, dir: oracledb.BIND_IN },
+            basePrice: { val: basePrice, dir: oracledb.BIND_IN },
+            createdAt: { val: currentTimestamp, dir: oracledb.BIND_IN, type: oracledb.DATE },
+            endedAt: { val: endedAtTimestamp, dir: oracledb.BIND_IN, type: oracledb.DATE }
+        };
+
+        await connection.execute(insertBidQuery, bindVars);
+        await connection.commit();
+
+        connection.close();
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
+}
+
+// Function to fetch bids from the database and add them to the Set
+async function fetchAuctionAndPlayerIDs() {
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        const query = `
+            SELECT AUCTION_ID, PLAYER_ID
+            FROM Player_Distribution
+        `;
+
+        const result = await connection.execute(query);
+
+        console.log(result.rows);
+
+        connection.close();
+
+        return result.rows;
+    } catch (error) {
+        console.error('Error fetching auction and player IDs:', error);
+        throw error;
+    }
+}
+ 
+
+
+const insertedPlayers = new Set();
+
+// Function to fetch auction IDs and player IDs from the bid table and add them to the Set
+async function fetchAuctionAndPlayerIDsFromDatabase() {
+    try {
+        // Replace this with your database query to fetch auction IDs and player IDs
+        const auctionAndPlayerIDs = await fetchAuctionAndPlayerIDs(); // Call your database query function here
+        if (auctionAndPlayerIDs.length > 0) {
+            // Iterate through the fetched data and add auction ID + player ID pairs to the Set
+            auctionAndPlayerIDs.forEach((row) => {
+                insertedPlayers.add(`${row.PLAYER_ID}-${row.AUCTION_ID}`); // Combine auction ID and player ID
+            });
+
+            //console.log('Inserted auction and player IDs:', insertedPlayers);
+        }
+    } catch (error) {
+        console.error('Error fetching auction and player IDs:', error);
+    }
+}
+
+
+const unsoldPlayers = new Set(); // Initialize an empty Set
+
+async function initializeUnsoldPlayersSet() {
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        // Query to retrieve players with "unsold" status from Player_In_Auction
+        const unsoldPlayersQuery = `
+            SELECT player_id, auction_id
+            FROM Player_In_Auction
+            WHERE status = 'unsold'
+        `;
+
+        const unsoldPlayersResult = await connection.execute(unsoldPlayersQuery);
+
+        // Populate the unsoldPlayers set with player_id and auction_id pairs
+        for (const row of unsoldPlayersResult.rows) {
+            const { player_id, auction_id } = row;
+            unsoldPlayers.add(`${row.PLAYER_ID}-${row.AUCTION_ID}`);
+        }
+
+        connection.close();
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+// Global variable to track whether the periodic checking is active
+let checkingIsActive = false;
+let counter = 0;
+
+
+
+async function insertPlayersIntoDistribution() {
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        const binds = {
+            expiredTimestamp: new Date(new Date() - 5 * 60000), // 5 minutes ago
+        };
+
+
+
+        // Find all expired bids where the team ID is not null
+        const unsold_query = `
+         SELECT b.auction_id, b.player_id
+         FROM bid b
+         WHERE  b.team_id IS NULL
+           AND b.created_at <= :expiredTimestamp
+     `;
+
+
+        //expired case
+        const unsold_result = await connection.execute(unsold_query, binds, { autoCommit: true });
+
+        for (const row of unsold_result.rows) {
+            const { auction_id, player_id } = row;
+
+
+            // Check if the player has already been inserted for the same auction ID
+            if (!unsoldPlayers.has(`${row.PLAYER_ID}-${row.AUCTION_ID}`)) {
+                console.log('dhuksi');
+                // Call the PL/SQL function to update the status to "unsold"
+                const updateStatusQuery = `
+             BEGIN
+                 :result := UpdatePlayerStatusToUnsold(:auction_id, :player_id);
+             END;
+         `;
+
+                const updateStatusBinds = {
+                    result: { type: oracledb.NUMBER, dir: oracledb.BIND_OUT },
+                    auction_id: row.AUCTION_ID,
+                    player_id: row.PLAYER_ID,
+                };
+
+                const updateStatusResult = await connection.execute(updateStatusQuery, updateStatusBinds, { autoCommit: true });
+
+
+                if (updateStatusResult.outBinds.result == 1) {
+                    // Successfully updated player status to "unsold"
+                    unsoldPlayers.add(`${row.PLAYER_ID}-${row.AUCTION_ID}`);
+                }
+            }
+        }
+
+
+        //Find all expired bids where the team ID is not null
+        const query = `
+            SELECT b.auction_id, b.team_id, b.player_id
+            FROM bid b
+            WHERE  b.team_id IS NOT NULL
+              AND b.created_at <= :expiredTimestamp
+        `;
+
+
+        const result = await connection.execute(query, binds, { autoCommit: true });
+        // counter++;
+        // console.log('checking ' + counter);
+
+
+
+
+
+//         // Insert players into the Player_Distribution table for each expired bid
+        for (const row of result.rows) {
+            const { auction_id, team_id, player_id } = row;
+            console.log(row);
+
+            // Check if the player has already been inserted for the same auction ID
+            if (!insertedPlayers.has(`${row.PLAYER_ID}-${row.AUCTION_ID}`)) {
+
+                const insertDistributionQuery = `
+                    INSERT INTO Player_Distribution (auction_id, team_id, player_id)
+                    VALUES (:auctionId, :teamId, :playerId)
+                `;
+
+                const insertDistributionBinds = {
+                    auctionId: row.AUCTION_ID,
+                    teamId: row.TEAM_ID,
+                    playerId: row.PLAYER_ID,
+                };
+                //console.log(insertDistributionBinds);
+
+                await connection.execute(insertDistributionQuery, insertDistributionBinds, { autoCommit: true });
+
+                // Call the PL/SQL procedure to increment Available_Player
+                const incrementPlayerProcedure = `
+    BEGIN
+        IncrementTakenPlayer(:teamId, :auctionId);
+    END;
+`;
+
+                const incrementPlayerBinds = {
+                    teamId: row.TEAM_ID,
+                    auctionId: row.AUCTION_ID,
+                };
+
+                await connection.execute(incrementPlayerProcedure, incrementPlayerBinds, { autoCommit: true });
+
+
+                // Add the player to the set of inserted players with the auction ID
+                insertedPlayers.add(`${row.PLAYER_ID}-${row.AUCTION_ID}`);
+            }
+        }
+
+        
+
+
+        const playerArray = [...unsoldPlayers];
+        console.log( 'unsold ' + playerArray);
+        const playerArraySold = [...insertedPlayers];
+        console.log('sold' + playerArraySold);
+
+
+        connection.close();
+    } catch (error) {
+        console.error(error);
+    }
+}
+// Schedule the function to run every second (adjust the interval as needed)
+let intervalId; // Variable to store the interval ID
+
+function startPeriodicChecking() {
+    if (!checkingIsActive) {
+        // Start the periodic checking only if it's not already active
+        intervalId = setInterval(insertPlayersIntoDistribution, 1000);
+        checkingIsActive = true;
+    }
+}
+
+
+// Endpoint for a team to place a bid on a player
+
+app.post('/placeTeamBid', async (req, res) => {
+    const { teamId, auctionId, playerId, biddingPrice } = req.body;
+
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        // Check if the team is participating in the specified auction
+        const checkParticipationQuery = `
+            SELECT 1
+            FROM Team_In_Auction
+            WHERE Team_Id = :teamId
+              AND Auction_Id = :auctionId
+        `;
+
+        const checkParticipationBinds = {
+            teamId,
+            auctionId,
+        };
+
+        const participationResult = await connection.execute(checkParticipationQuery, checkParticipationBinds, { autoCommit: true });
+
+        if (participationResult.rows.length == 0) {
+            connection.close();
+            return res.status(400).json({ error: 'Team is not participating in the specified auction' });
+        }
+
+        // Check if the team's available fund is sufficient for the bidding price
+        const checkFundQuery = `
+            SELECT Available_Fund
+            FROM Team_In_Auction
+            WHERE Team_Id = :teamId AND Auction_Id = :auctionId
+        `;
+
+        const checkFundBinds = {
+            teamId,
+            auctionId
+        };
+
+        const fundResult = await connection.execute(checkFundQuery, checkFundBinds, { autoCommit: true });
+
+        if (fundResult.rows.length == 0) {
+            connection.close();
+            return res.status(400).json({ error: 'Team not found' });
+        }
+
+        const teamAvailableFund = fundResult.rows[0].AVAILABLE_FUND;
+
+        if (biddingPrice > teamAvailableFund) {
+            connection.close();
+            // return res.json({ message: 'Insufficient funds for bidding' });
+            return res.status(400).json({ error: 'Insufficient funds for bidding' });
+        }
+
+        // Check if the player's bid is still active (i.e., the bid has not ended)
+        const checkBidQuery = `
+            SELECT id, ended_at, team_id, bidding_price, auction_id
+            FROM Bid
+            WHERE auction_id = :auctionId
+              AND player_id = :playerId 
+              AND ended_at > CURRENT_TIMESTAMP
+        `;
+
+        const checkBidBinds = {
+            auctionId,
+            playerId
+        };
+
+
+
+        const bidResult = await connection.execute(checkBidQuery, checkBidBinds, { autoCommit: true });
+        // console.log(bidResult.rows[0].AUCTION_ID);
+
+        if (bidResult.rows.length == 0) {
+            connection.close();
+            // return res.json({ message: 'Player bid not found or bid has ended' });
+            return res.status(400).json({ error: 'Player bid not found or bid has ended' });
+        }
+
+
+
+        const lastBidTeamId = bidResult.rows[0].TEAM_ID;
+        const previousBiddingPrice = bidResult.rows[0].BIDDING_PRICE;
+        const lastAuctionId = bidResult.rows[0].AUCTION_ID;
+
+        console.log(`last bid team id ${lastBidTeamId}`);
+        console.log(`last auction id ${lastAuctionId}`)
+        console.log(`current team id ${teamId}`);
+        console.log(`current auction id ${auctionId}`);
+        console.log(lastBidTeamId == teamId && lastAuctionId == auctionId);
+        // Check if the last bid for the same auction was made by the same team
+        if (lastBidTeamId == teamId && lastAuctionId == auctionId) {
+            console.log('same team');
+            // return res.json({ message: 'Team cannot bid consecutively in the same auction' });
+            connection.close();
+            return res.status(400).json({ error: 'Team cannot bid consecutively in the same auction' });
+        }
+
+        // Check if the new bidding price is higher than the previous bidding price
+        if (biddingPrice <= previousBiddingPrice && lastAuctionId == auctionId) {
+            connection.close();
+            // return res.json({ message: 'Bidding price must be higher than the previous bid' });
+            return res.status(400).json({ error: 'Bidding price must be higher than the previous bid' });
+        }
+
+        // Check if the team has reached the maximum number of players it can have
+        const checkPlayerLimitQuery = `
+            SELECT Total_Player, Taken_Player
+            FROM Team_In_Auction 
+            WHERE Team_Id = :teamId AND Auction_Id = :auctionId
+        `;
+
+        const checkPlayerLimitBinds = {
+            teamId,
+            auctionId
+        };
+
+        const playerLimitResult = await connection.execute(checkPlayerLimitQuery, checkPlayerLimitBinds, { autoCommit: true });
+
+        if (playerLimitResult.rows.length == 0) {
+            connection.close();
+            // return res.json({ message: 'Team not found' });
+            return res.status(400).json({ error: 'Team not found' });
+        }
+        const totalPlayerLimit = playerLimitResult.rows[0].TOTAL_PLAYER;
+        const takenPlayerCount = playerLimitResult.rows[0].TAKEN_PLAYER;
+
+        if (takenPlayerCount >= totalPlayerLimit) {
+            connection.close();
+            // return res.json({ message: 'Team has reached the maximum number of players' });
+            return res.status(400).json({ error: 'Team has reached the maximum number of players' });
+        }
+
+        // Call the PL/SQL function to update the bid
+        const updateBidQuery = `BEGIN :result := updateBid(:teamId, :biddingPrice, :playerId); END;` ;
+
+        const updateBidBinds = {
+            result: { type: oracledb.NUMBER, dir: oracledb.BIND_OUT },
+            teamId,
+            biddingPrice,
+            playerId
+        };
+
+        const result = await connection.execute(updateBidQuery, updateBidBinds, { autoCommit: true });
+
+        if (result.outBinds.result == 1) {
+            // Bid updated successfully
+            connection.close();
+            res.json({ message: 'Team bid placed successfully' });
+
+        } else {
+            // Error occurred while updating bid
+            connection.close();
+            res.status(500).json({ error: 'An error occurred while updating the bid' });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+
+//it will return false if the bid count is 0 and will return false if the bid count > 0
+app.get("/countBid/:auctionId", async (req, res) => {
+    const auctionId = req.params.auctionId;
+
+    try {
+        const connection = await oracledb.getConnection(dbConfig);
+
+        // Query to count players with status "bid" for the specified auction
+        const countPlayersInBidQuery = `
+            SELECT COUNT(*) AS playerCount
+            FROM Player_In_Auction
+            WHERE Auction_Id = :auctionId
+              AND Status = 'currently in bid'
+        `;
+
+        const countResult = await connection.execute(countPlayersInBidQuery, { auctionId });
+
+        connection.close();
+
+        const playerCount = countResult.rows[0].PLAYERCOUNT;
+        const hasPlayersInBid = playerCount > 0;
+
+        res.json({ hasPlayersInBid });
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'An error occurred' });

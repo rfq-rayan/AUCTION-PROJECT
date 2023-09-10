@@ -75,4 +75,18 @@
   background-color: #fff;
 }
 
+/* .inputt-container input:focus {
+  border: 2px solid #1877f2;
+  border-radius: 8px;
+  border: 2px solid #dddfe2;
+  outline: none;
+  color: #1d2129;
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.75rem;
+  width: 50%;
+  font-size: 1rem;
+  background-color: #fff;
+
+} */
+
 /* Apply this class to the div containing the inputs */

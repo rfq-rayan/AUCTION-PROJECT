@@ -9,7 +9,7 @@ import Cookies from 'js-cookie';
 import { Link, Navigate } from 'react-router-dom';
 // import "../css/homepage.css";
 
-
+const teamId = window.location.pathname.split('/')[2];
 const TeamLogin = ({ userInfo }) => {
     const userInfosRef = useRef(null);
     // const[teams, setTeams] = useState([]);
@@ -17,7 +17,7 @@ const TeamLogin = ({ userInfo }) => {
     const [notifications, setNotifications] = useState(
         []
     );
-
+    const [teamAuctions, setTeamAuctions] = useState([]);
 
     useEffect(() => {
         const storedUserInfo = Cookies.get('userInfo');
@@ -28,7 +28,8 @@ const TeamLogin = ({ userInfo }) => {
     }, []);
 
     useEffect(() => {
-        const teamId = userInfosRef.current.ID; 
+        // const teamId = userInfosRef.current.ID;
+        const teamId = window.location.pathname.split('/')[2];
         // console.log(teamId);
         axios.get(`http://localhost:9002/team?teamId=${teamId}`)
             .then((res) => {
@@ -50,10 +51,21 @@ const TeamLogin = ({ userInfo }) => {
             });
     }, [userInfosRef.current]);
     useEffect(() => {
-        console.log(notifications); 
+        console.log(notifications);
     }, [notifications]);
 
-    
+    useEffect(() => {
+        const teamId = userInfosRef.current.ID;
+        axios.get(`http://localhost:9002/teamAuctions?teamId=${teamId}`)
+            .then((res) => {
+                setTeamAuctions(res.data);
+                console.log(teamAuctions);
+            })
+            .catch((err) => {
+                console.error(err);
+            });
+    }, [userInfosRef.current]);
+
     const actionButtons = (rowData) => {
         return (
             <div>
@@ -121,7 +133,7 @@ const TeamLogin = ({ userInfo }) => {
     //         console.error(err);
     //     });
     //     // After successful acceptance, you can update the UI or refresh the notifications list
-    // };
+    // };       
 
 
     return (
@@ -130,21 +142,79 @@ const TeamLogin = ({ userInfo }) => {
                 <>
                     <h1> Hello, {team.NAME}</h1>
                     <h2> Team ID: {team.ID}</h2>
-                    <br/>
+                    <br />
                     {/* <h2>Notifications</h2> */}
-                    
                     <Collapsible trigger={<p><div className='noti'>Notifications</div></p>}>
-                    {notifications && notifications.length > 0 ? (
-                        <DataTable value={notifications} className='table'>
-                            <Column field="auctionName" header="Auction Name" />
-                            <Column field="auctionType" header="Auction Type" />
-                            {/* <Column field="auctionId" header="Auction ID" /> */}
-                            <Column header="Action" body={actionButtons} />
-                            
-                        </DataTable>
-                    ) : (
-                        <p>No notifications</p>
-                    )}
+                        {
+                            notifications && notifications.length > 0 ? (
+                                <DataTable value={notifications} className='table'>
+                                    <Column field="auctionName" header="Auction Name" />
+                                    <Column field="auctionType" header="Auction Type" />
+                                    {/* <Column field="auctionId" header="Auction ID" /> */}
+                                    <Column header="Action" body={actionButtons} />
+
+                                </DataTable>
+                            ) : (
+                                <p>No notifications</p>
+                            )
+                        }
+
+                    </Collapsible>
+                    <Collapsible
+                        trigger=
+                        
+                            {teamAuctions && teamAuctions.length > 0 ? (
+                                <p>
+                                    <div className='noti'>Assigned Auctions ( {teamAuctions.length} )</div>
+                                </p>
+                            ) : (
+                                <p>
+                                    <div className='noti'>No Assigned Auctions</div>
+                                </p>
+                            )
+
+                            }
+                            // <p>
+                            //     <div className='noti'>Assigned Auctions</div>
+                            // </p>
+                        
+                        
+                    >
+                        {
+                            teamAuctions && teamAuctions.length > 0 ? (
+
+                                <DataTable value={teamAuctions} className='table' >
+                                    <Column field="NAME" header="Auction Name" />
+                                    <Column field="TYPE" header="Auction Type" />
+                                    <Column
+                                        field="AUCTION_STATUS"
+                                        header="Auction Status"
+                                        align='center'
+                                        body={(rowData) =>
+                                            rowData.AUCTION_STATUS === "Current" ? "Ongoing" : rowData.AUCTION_STATUS
+                                        }
+                                    />
+                                    <Column
+                                        header="Action"
+                                        body={(rowData) =>
+                                            rowData.AUCTION_STATUS === "Current" ? (
+                                                <Link to={`/team/${team.ID}/auction/${rowData.ID}`} >
+                                                    <Button label="View Auction" />
+                                                </Link>
+                                            ) : (
+                                                <Link to={`/auction/${rowData.ID}`}>
+                                                    <Button label="View Auction" />
+                                                </Link>
+                                            )
+                                        }
+                                    />
+
+                                </DataTable>
+                            ) : (
+                                <p>No assigned auctions</p>
+                            )
+                        }
+
                     </Collapsible>
 
                 </>
@@ -153,7 +223,7 @@ const TeamLogin = ({ userInfo }) => {
                     <p> Loading info....</p>
                 )
 
-        }
+            }
         </div>
     );
 

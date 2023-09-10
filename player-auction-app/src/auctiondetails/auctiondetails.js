@@ -12,6 +12,7 @@ const AuctionDetails = () => {
   const { id } = useParams(); // Extract auction ID from URL parameter
   const [auctionDetails, setAuctionDetails] = useState(null);
   const [bidmanagers, setBidmanagers] = useState([]);
+  const [currentBidmanager, setCurrentBidmanager] = useState([]);
   const auctionId = window.location.pathname.split('/')[2];
   const navigate = useNavigate();
 
@@ -20,6 +21,7 @@ const AuctionDetails = () => {
     axios.get(`http://localhost:9002/auction/${id}`)
       .then((res) => {
         setAuctionDetails(res.data);
+        console.log(auctionDetails);
       })
       .catch((err) => {
         console.error(err);
@@ -37,13 +39,30 @@ const AuctionDetails = () => {
         console.error(err);
       });
   }, []);
+  useEffect(() => {
+    axios
+      .get(`http://localhost:9002/auctionBidManagers/${auctionId}`)
+      .then((res) => {
+        console.log(res.data);
+        const current = res.data;
+
+        setCurrentBidmanager(current[0]);
+        console.log(currentBidmanager);
+      }
+      )
+      .catch((err) => {
+        console.error(err);
+      });
+  }, []);
 
   const handleNavigateToPlayers = () => {
-    navigate(`/auction/${id}/players`);
+    (auctionDetails.AUCTION_STATUS == 'Future') ? navigate(`/auction/${id}/players`) : navigate(`/auction/${id}/iplayers`);
+    // navigate(`/auction/${id}/players`);
   };
 
   const handleNavigateToTeams = () => {
-    navigate(`/auction/${id}/teams`);
+    (auctionDetails.AUCTION_STATUS == 'Future') ? navigate(`/auction/${id}/teams`) : navigate(`/auction/${id}/iteams`);
+    // navigate(`/auction/${id}/teams`);
   };
 
   const handleNavigateToBiddingArena = () => {
@@ -89,6 +108,25 @@ const AuctionDetails = () => {
       );
 
   };
+  const handlRemoveAuction = (bidmanagerId) => {
+    const inviteData = {
+      auctionId: auctionId,
+      bidManagerId: bidmanagerId,
+    };
+
+    axios
+      .delete(`http://localhost:9002/auction/${auctionId}/bidManagers/${bidmanagerId}`)
+      .then((res) => {
+        alert('Bid Manager removed successfully');
+        window.location.reload();
+      })
+      .catch((err) => {
+        console.error(err);
+      }
+      );
+
+  };
+
 
   return (
     <div>
@@ -109,7 +147,37 @@ const AuctionDetails = () => {
         <button onClick={handleNavigateToPlayers}>Players</button>
         <button onClick={handleNavigateToTeams}>Teams</button>
         {/* <button onClick={handleNavigateToBidManager}>Bid Manager</button> */}
-        <Collapsible trigger={<Button>Bid Manager</Button>}>
+        <hr />
+        {currentBidmanager ? (
+          <>
+            <table>
+              <tr>
+                <td>
+                  <h2> Current Bid Manager: {currentBidmanager.NAME} </h2>
+                </td>
+                <td>
+                  {
+
+                  auctionDetails && auctionDetails.AUCTION_STATUS == 'Future' ? (
+                  <button onClick={() => handlRemoveAuction(currentBidmanager.ID)}>Remove</button>
+                  ) : (
+                    <></>
+                  )}
+                </td>
+              </tr>
+
+            </table>
+          </>
+        ) : (
+          <p>No bid manager is yet assigned</p>
+        )
+        }
+        
+
+        <Collapsible
+
+
+          trigger={<Button>Bid Manager</Button>}>
           <div className='table-container'>
             <DataTable value={bidmanagers}>
               <Column field='ID' header='ID'></Column>

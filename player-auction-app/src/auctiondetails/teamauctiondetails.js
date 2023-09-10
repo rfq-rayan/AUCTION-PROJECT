@@ -1,0 +1,108 @@
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { useParams, useNavigate } from 'react-router-dom';
+import { DataTable } from 'primereact/datatable';
+import { Column } from 'primereact/column';
+import { Button } from 'primereact/button';
+// import 
+import Collapsible from 'react-collapsible';
+// import { Button } from 'primereact/button';
+
+
+const TeamAuctionDetails = () => {
+    const { id } = useParams(); // Extract auction ID from URL parameter
+    const [auctionDetails, setAuctionDetails] = useState(null);
+    const [bidmanagers, setBidmanagers] = useState([]);
+    const [currentBidmanager, setCurrentBidmanager] = useState([]);
+    const auctionId = window.location.pathname.split('/')[4];
+    const teamId = window.location.pathname.split('/')[2];
+    const navigate = useNavigate();
+
+    const handleNavigateToiPlayers = () => {
+        navigate(`/auction/${id}/iplayers`);
+    };
+    const handleNavigateToiTeams = () => {
+        navigate(`/auction/${id}/iteams`);
+    };
+    // const handleNavigateToBidManager = () => {
+    //     navigate(`/auction/${id}/bidmanager`);
+    // };
+    const handleNavigateToBiddingArena = () => {
+        navigate(`/auction/${id}/team/${teamId}/bidding-arena`);
+    };
+
+
+    return (
+        <div>
+          <br></br>
+          {/* <h2>Auction Details</h2> */}
+          {auctionDetails ? (
+            <>
+              <h1>{auctionDetails.NAME}</h1>
+              <p>Auction Type: {auctionDetails.TYPE}</p>
+            </>
+          ) : (
+            <p>Loading auction details...</p>
+          )}
+
+          <hr />
+          <div>
+    
+            <h2>Navigation</h2>
+            <button onClick={handleNavigateToiPlayers}>Players</button>
+            <button onClick={handleNavigateToiTeams}>Teams</button>
+
+            {/* <button onClick={handleNavigateToBidManager}>Bid Manager</button> */}
+            <hr />
+            {/* {currentBidmanager ? (
+              <>
+                <table>
+                  <tr>
+                    <td>
+                      <h2> Current Bid Manager: {currentBidmanager.NAME} </h2>
+                    </td>
+                    <td>
+                      <button onClick={() => handlRemoveAuction(currentBidmanager.ID)}>Remove</button>
+                    </td>
+                  </tr>
+    
+                </table>
+              </>
+            ) : (
+              <p>No bid manager is yet assigned</p>
+            )
+            } */}
+            
+    
+            {/* <Collapsible
+    
+    
+              trigger={<Button>Bid Manager</Button>}>
+              <div className='table-container'>
+                <DataTable value={bidmanagers}>
+                  <Column field='ID' header='ID'></Column>
+                  <Column field='NAME' header='Name'></Column>
+                  <Column field='PHOTO' header='Photo'></Column>
+                  <Column field='STATUS' header='Status'></Column>
+                  <Column
+                    body={(bidmanager) =>
+                      bidmanager.STATUS == "pending" ?
+                        (<Button label='UNDO' onClick={() => handleUNDO(bidmanager.ID)} />
+                        ) : (
+                          <Button label='Invite' onClick={() => handleInviteClick(bidmanager.ID)} />
+                        )
+                    }
+                    header='Action'
+                  />
+                </DataTable>
+              </div>
+            </Collapsible> */}
+    
+            <button onClick={handleNavigateToBiddingArena}>Bidding Arena</button>
+          </div>
+        </div>
+      );
+
+};
+
+export default TeamAuctionDetails;

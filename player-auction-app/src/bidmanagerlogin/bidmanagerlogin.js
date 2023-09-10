@@ -6,14 +6,16 @@ import '../css/teamlogin.css'; // Import your CSS file for styling
 import Collapsible from 'react-collapsible';
 import axios from 'axios';
 import Cookies from 'js-cookie';
+import { Link, Navigate } from 'react-router-dom';
+
 
 const BidManagerLogin = ({ userInfo }) => {
     const userInfosRef = useRef(null);
     const [bidManager, setBidManager] = useState([]);
-    const [notifications, setNotifications] = useState(
-        []
-    );
-
+    const [notifications, setNotifications] = useState([]);
+    const [bidManagerAuctions, setBidManagerAuctions] = useState([]);
+    const bidManagerId = window.location.pathname.split('/')[2];
+    
     useEffect(() => {
         const storedUserInfo = Cookies.get('userInfo');
         if (storedUserInfo) {
@@ -22,6 +24,18 @@ const BidManagerLogin = ({ userInfo }) => {
         }
     }
     , []);
+
+    useEffect(() => {
+        const teamId = userInfosRef.current.ID;
+        axios.get(`http://localhost:9002/BidManagerAuctions?bidManagerId=${bidManagerId}`)
+            .then((res) => {
+                setBidManagerAuctions(res.data);
+                console.log(bidManagerAuctions);
+            })
+            .catch((err) => {
+                console.error(err);
+            });
+    }, [userInfosRef.current]);
     
     const actionButtons = (rowData) => {
         return (
@@ -36,13 +50,13 @@ const BidManagerLogin = ({ userInfo }) => {
 
         // Implement logic to accept the notification
         // For example, send a request to your backend to accept the notification
-        const teamId = userInfosRef.current.ID;
+        const bidManagerId = userInfosRef.current.ID;
         const auctionId = notification.auctionId;
-        console.log(teamId, auctionId);
+        console.log(bidManagerId, auctionId);
         axios
-            .post(`http://localhost:9002/teamAssignmentResponse`,
+            .post(`http://localhost:9002/bidManagerAssignmentResponse`,
                 {
-                    teamId: teamId,
+                    bidManagerId: bidManagerId,
                     auctionId: auctionId,
                     response: "accept",
                 })
@@ -100,6 +114,63 @@ const BidManagerLogin = ({ userInfo }) => {
                         <h3>No notifications</h3>
                     )}
                     </Collapsible>
+
+                    <Collapsible
+                        trigger=
+                        
+                            {bidManagerAuctions && bidManagerAuctions.length > 0 ? (
+                                <p>
+                                    <div className='noti'>Assigned Auctions ( {bidManagerAuctions.length} )</div>
+                                </p>
+                            ) : (
+                                <p>
+                                    <div className='noti'>No Assigned Auctions</div>
+                                </p>
+                            )
+
+                            }
+                            // <p>
+                            //     <div className='noti'>Assigned Auctions</div>
+                            // </p>
+                        
+                        
+                    >
+                        {
+                            bidManagerAuctions && bidManagerAuctions.length > 0 ? (
+
+                                <DataTable value={bidManagerAuctions} className='table' >
+                                    <Column field="NAME" header="Auction Name" />
+                                    <Column field="TYPE" header="Auction Type" />
+                                    <Column
+                                        field="AUCTION_STATUS"
+                                        header="Auction Status"
+                                        align='center'
+                                        body={(rowData) =>
+                                            rowData.AUCTION_STATUS === "Current" ? "Ongoing" : rowData.AUCTION_STATUS
+                                        }
+                                    />
+                                    <Column
+                                        header="Action"
+                                        body={(rowData) =>
+                                            rowData.AUCTION_STATUS ? (
+                                                <Link to={`/bidmanager/${bidManagerId}/auction/${rowData.ID}`} >
+                                                    <Button label="View Auction" />
+                                                </Link>
+                                            ) : (
+                                                <Link to={`/auction/${rowData.ID}`}>
+                                                    <Button label="View Auction" />
+                                                </Link>
+                                            )
+                                        }
+                                    />
+
+                                </DataTable>
+                            ) : (
+                                <p>No assigned auctions</p>
+                            )
+                        }
+
+                    </Collapsible>              
 
                 </> 
             ) : (

@@ -44,7 +44,7 @@ const PlayerLogin = ({ userInfo }) => {
                 .then((res) => {
                     // console.log(res.data);
                     const notificationData = res.data;
-                    
+
 
                     console.log(notificationData);
                     setNotifications(notificationData);
@@ -82,7 +82,7 @@ const PlayerLogin = ({ userInfo }) => {
                 {
                     playerId: playerId,
                     auctionId: auctionId,
-                   
+
                     response: "accept",
                 })
             .then((res) => {
@@ -105,17 +105,31 @@ const PlayerLogin = ({ userInfo }) => {
     return (
         <div>
             {userInfosRef.current ? (
+
                 <>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <img
+                            src={require(`../photos/${userInfosRef.current.PHOTO}`)}
+                            style={
+                                {
+                                    border: '2px solid #000', // Border width and color
+                                    borderRadius: '100px',      // Rounded corner radius
+                                    height: '100px',            // Desired height of the image
+                                }}
+                            alt="Player Photo"
+                        />
+                    </div>
+                    <div>
                     {/* {console.log("I aaa" )} */}
                     <h1>Hello, {userInfosRef.current.NAME}</h1>
                     <h2>Email: {userInfosRef.current.MAIL}</h2>
                     <h2>Playing Role: {userInfosRef.current.PLAYING_ROLE}</h2>
+                    </div>
                     {/* PHOTO */}
                     {/* <h2>Status: {userInfosRef.current.INVITATIONSTATUS}</h2> */}
                     {/* images are in assets/photos/ directory */}
-                    <img src={`${userInfosRef.current.PHOTO}`} height={200} /><br />
-                    <br />
-                    <br />
+                    {/* <img src={`${userInfosRef.current.PHOTO}`} height={200} /><br />
+                     */}
                     {/* <ul>
                         {notifications.map((notification) => (
                             <li key={notification.NOTIFICATIONID}>
@@ -127,7 +141,7 @@ const PlayerLogin = ({ userInfo }) => {
                             
                         </ul> */}
                     <h2>Notifications</h2>
-                    Notifications: {notifications.length} 
+                    Notifications: {notifications.length}
                     {notifications.length > 0 ? (
                         <DataTable value={notifications}>
                             <Column field="auctionName" header="Auction NAME" />
@@ -135,8 +149,8 @@ const PlayerLogin = ({ userInfo }) => {
                             <Column field="category" header="Category" />
                             <Column header="Actions" body={actionButtons} />
                         </DataTable>
-                     
-                    
+
+
                     ) : (
                         <p>No notifications available.</p>
                     )}
