@@ -34,27 +34,44 @@ const Login = ({ setUserInfo }) => {
         .post('http://localhost:9002/login', user)
         .then((res) => {
           if (res.data.message === 'Login successful') {
-            Cookies.set('userInfo',JSON.stringify(res.data.user), { expires: 3 });
-            setUserInfo(res.data.user);
+            // Cookies.set('userInfo',JSON.stringify(res.data.user), { expires: 3 });
+            // setUserInfo(res.data.user);
+            if (role === "player") {
+              Cookies.set("playerInfo", JSON.stringify(res.data.user), {
+                expires: 3
+              });
+            }
+            else if (role === "team") {
+              Cookies.set("teamInfo", JSON.stringify(res.data.user), {
+                expires: 3
+              });
+            }
+            else if (role === "bidmanager") {
+              Cookies.set("bidmanagerInfo", JSON.stringify(res.data.user), {
+                expires: 3
+              });
+            }
+            else if (role === "admin") {
+              Cookies.set("adminInfo", JSON.stringify(res.data.user), {
+                expires: 3
+              });
+            }
+            console.log(res.data.user);
             alert('Login successful');
             const id = res.data.user.ID;
-            if (role === 'admin') 
-            {
+            if (role === 'admin') {
               navigate('/homepage');
             }
-            else if (role === 'team')
-            {
+            else if (role === 'team') {
               navigate(`/team/${id}`);
             }
-            else if (role === 'player')
-            {
+            else if (role === 'player') {
               navigate(`/player/${id}`);
             }
-            else if (role === 'bidmanager')
-            {
+            else if (role === 'bidmanager') {
               navigate(`/bidmanager/${id}`);
             }
-            
+
           } else {
             alert('Invalid Credentials');
           }

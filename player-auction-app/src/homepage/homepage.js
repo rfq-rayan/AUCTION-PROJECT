@@ -19,7 +19,7 @@ const Homepage = ({ userInfo }) => {
   const userInfosRef = useRef(null);
 
   useEffect(() => {
-    const storedUserInfo = Cookies.get('userInfo');
+    const storedUserInfo = Cookies.get('adminInfo');
     console.log(storedUserInfo);
     if (storedUserInfo) {
       const parsedUserInfo = JSON.parse(storedUserInfo);
@@ -85,20 +85,21 @@ const Homepage = ({ userInfo }) => {
       });
   };
 
-  // const handleDeleteAuction = (auctionId) => {
-  //   // Make a DELETE request to delete the auction
-  //   axios.delete(`http://localhost:9002/deleteAuction/${auctionId}`)
-  //     .then(() => {
-  //       // Refresh the list of auctions after deletion
-  //       const updatedAuctions = auctions.filter((auction) => auction.id !== auctionId);
-  //       setAuctions(updatedAuctions);
+  const handleDeleteAuction = (auctionId) => {
+    // Make a DELETE request to delete the auction
+    axios.delete(`http://localhost:9002/deleteAuction/${auctionId}`)
+      .then(() => {
+        // Refresh the list of auctions after deletion
+        // const updatedAuctions = auctions.filter((auction) => auction.id !== auctionId);
+        // setAuctions(updatedAuctions);
 
-  //       window.location.reload();
-  //     })
-  //     .catch((err) => {
-  //       console.error(err);
-  //     });
-  // };
+        window.location.reload();
+        alert("Auction deleted successfully");
+      })
+      .catch((err) => {
+        console.error(err);
+      });
+  };
   const handleUpdate = (auctionId) => {
     axios.put(`http://localhost:9002/updateAuctionStatus/${auctionId}`)
       .then(() => {
@@ -114,6 +115,7 @@ const Homepage = ({ userInfo }) => {
     // Navigate to the auction details page
     
   };
+
 
   return (
     <div>
@@ -189,7 +191,11 @@ const Homepage = ({ userInfo }) => {
                   <Column field="ID" header="View Details" body={(rowData) => <Link to={`/auction/${rowData.ID}`}>View Details</Link>}></Column>
                   <Column
                     body={(auction) => (
+                      <div>
+
                       <Button label="Start Auction" onClick={() => handleUpdate(auction.ID)} />
+                      <Button label="Delete Auction" onClick={() => handleDeleteAuction(auction.ID)} />
+                      </div>
                     )}
                     header="Action"
                   />

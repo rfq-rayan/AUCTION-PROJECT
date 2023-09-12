@@ -17,7 +17,10 @@ import TeamAuctionDetails from './auctiondetails/teamauctiondetails';
 import IPlayers from './players/iPlayers';
 import ITeams from './teams/iteams';
 import BidManagerAuctionDetails from './auctiondetails/bidmanagerauctiondetails';
+import PlayerAuctionDetails from './auctiondetails/playerauctiondetails';
 import ManageBid from './biddingarena/managebid';
+import IBiddingArena from './biddingarena/ibiddingarena';
+
 function App() {
   const [userInfo, setUserInfo] = useState(null);
   const [auctionID, setAuctionID] = useState(null);
@@ -45,6 +48,14 @@ function App() {
             <Route path = "/auction/:id/iteams" element={<ITeams />} />
             <Route path = "/bidmanager/:id/auction/:auctionId" element={<BidManagerAuctionDetails />} />
             <Route path = "/auction/:id/bidmanager/:bidManagerId/managebid" element={<ManageBid />} />
+            <Route path = "/auction/:auctionId/player/:playerId/ibidding-arena" element={<IBiddingArena />} />
+            <Route path = "/auction/:auctionId/player/:playerId" element={<PlayerAuctionDetails />} />
+            <Route path = "/auction/:auctionId/player/:playerId/iplayers" element={<IPlayers />} />
+            <Route path = "/auction/:auctionId/player/:playerId/iteams" element={<ITeams />} />
+
+
+            {/* <Route path = "/auction/:auctionId/player/:playerId/managebid" element={<ManageBid />} /> */}
+
           {/* </Route> */}
         </Routes>
       </Router>

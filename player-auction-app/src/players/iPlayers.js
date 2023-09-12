@@ -137,58 +137,6 @@ const IPlayers = () => {
     };
     return (
         <>
-            <div>
-            {auctionDetails && auctionDetails.AUCTION_STATUS == "Future" && (
-                <>
-                <h2>Players</h2>
-                <div className='table-container'tableStyle={{  minWidth: '50rem',minHeight: '12rem' }}>
-                    <div className='input-container'>
-                        <input
-                            type="number"
-
-                            placeholder="Base Price"
-                            value={basePrice}
-                            onChange={(e) => setBasePrice(e.target.value)}
-                        />
-                        {/* <input
-                        type="text"
-                        placeholder="Category"
-                        value={category}
-                        onChange={(e) => setCategory(e.target.value)}
-                    /> */}
-                        <select
-                            value={category}
-                            onChange={(e) => setCategory(e.target.value)}
-                        >
-                            <option value="a">A</option>
-                            <option value="b">B</option>
-                            <option value="c">C</option>
-                        </select>
-                    </div>
-
-                    <DataTable value={players}>
-                        <Column field="ID" header="ID" />
-                        <Column field="NAME" header="Name" />
-                        {/* <Column field="BASE_PRICE" header="Base Price" />
-          <Column field="CATEGORY" header="Category" /> */}
-                        <Column field="STATUS" header="Status" />
-                        <Column field="PLAYING_ROLE" header="Playing Role" />
-                        <Column
-                            body={(player) =>
-                                player.STATUS == "pending" ? (
-                                    <Button label="UNDO" onClick={() => handleUNDO(player.ID)} />
-                                ) : (
-                                    <Button label="Invite" onClick={() => handleInviteClick(player.ID)} />
-                                )
-
-                            }
-                            header="Action"
-                        />
-                    </DataTable>
-                </div>
-                </>)}
-            </div>
-
 
             <div className='player-in-auction'>
                 <h2>Players in Auction</h2>

@@ -3,6 +3,7 @@ import axios from 'axios';
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { Button } from 'primereact/button';
+
 // import Cookies from 'js-cookie';
 // import PlayerModal from './playerModal';
 // import css
@@ -134,45 +135,12 @@ const ITeams = () => {
     // };
     return (
         <>
-            <div>
-            {auctionDetails && auctionDetails.AUCTION_STATUS == "Future" && (
-                <>
-                <h2>Teams</h2>
-                {console.log(teams)}
-                <div className='table-container'>
-                    <DataTable value={teams}>
-                        <Column field="ID" header="ID" />
-                        <Column field="NAME" header="Name" />
-                        {/* <Column field="BASE_PRICE" header="Base Price" />
-          <Column field="CATEGORY" header="Category" /> */}
-                        <Column field="TOTAL_FUND" header="Total Fund" />
-
-                        <Column field="LOGO" header="Logo" />
-                        {/* <Column field="PLAYING_ROLE" header="Playing Role" /> */}
-                        <Column field="STATUS" header="Status" />
-
-                        <Column
-                            body={(team) =>
-                                team.STATUS== "pending" ? (
-                                    <Button label="UNDO" onClick={() => handleUNDOteam(team.ID)}/>
-                                ) : (
-                                    <Button label="Invite" onClick={() => handleInviteClick(team.ID)} />
-                                )
-
-                            }
-                            header="Action"
-                        />
-                    </DataTable>
-                </div>
-                </>)}
-            </div>
-
 
             <div className='team-in-auction'>
                 <h2>Teams in Auction</h2>
 
                 <div className='table-container'>
-                    <DataTable value={currentTeams}>
+                    <DataTable value={currentTeams}tableStyle={{  minWidth: '50rem',minHeight: '12rem' }}>
                         <Column field="ID" header="ID" />
                         <Column field="NAME" header="Name" />
                         {/* <Column field="STATUS" header="Status" /> */}

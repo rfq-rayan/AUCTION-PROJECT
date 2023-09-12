@@ -55,9 +55,32 @@ const Register = () => {
                         console.log()
                     if (res.data.message === "Registration successful") {
                         console.log("HELLO");
-                        Cookies.set("userInfo", JSON.stringify(res.data.user), {
-                            expires: 3
-                        });
+                        //if data.user
+                        // console.log(res.data.user);
+                        // Cookies.set("userInfo", JSON.stringify(res.data.user), {
+                        //     expires: 3
+                        // });
+                        if(role === "player") {
+                            Cookies.set("playerInfo", JSON.stringify(res.data.user), {
+                                expires: 3
+                            });
+                        }
+                        else if(role === "team") {
+                            Cookies.set("teamInfo", JSON.stringify(res.data.user), {
+                                expires: 3
+                            });
+                        }
+                        else if(role === "bidmanager") {
+                            Cookies.set("bidmanagerInfo", JSON.stringify(res.data.user), {
+                                expires: 3
+                            });
+                        }
+                        else if(role === "admin") {
+                            Cookies.set("adminInfo", JSON.stringify(res.data.user), {
+                                expires: 3
+                            });
+                        }
+                        
 
                         setUser(res.data.user);
 

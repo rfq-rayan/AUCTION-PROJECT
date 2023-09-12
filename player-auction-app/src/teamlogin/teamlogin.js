@@ -12,6 +12,7 @@ import { Link, Navigate } from 'react-router-dom';
 const teamId = window.location.pathname.split('/')[2];
 const TeamLogin = ({ userInfo }) => {
     const userInfosRef = useRef(null);
+    const [editData, setEditData] = useState({});
     // const[teams, setTeams] = useState([]);
     const [team, setTeam] = useState([]);
     const [notifications, setNotifications] = useState(
@@ -20,7 +21,7 @@ const TeamLogin = ({ userInfo }) => {
     const [teamAuctions, setTeamAuctions] = useState([]);
 
     useEffect(() => {
-        const storedUserInfo = Cookies.get('userInfo');
+        const storedUserInfo = Cookies.get('teamInfo');
         if (storedUserInfo) {
             const parsedUserInfo = JSON.parse(storedUserInfo);
             userInfosRef.current = parsedUserInfo;
@@ -28,7 +29,6 @@ const TeamLogin = ({ userInfo }) => {
     }, []);
 
     useEffect(() => {
-        // const teamId = userInfosRef.current.ID;
         const teamId = window.location.pathname.split('/')[2];
         // console.log(teamId);
         axios.get(`http://localhost:9002/team?teamId=${teamId}`)
@@ -104,6 +104,61 @@ const TeamLogin = ({ userInfo }) => {
 
         // After successful decline, you can update the UI or refresh the notifications list
     };
+
+
+    useEffect(() => {
+        const teamId = userInfosRef.current.ID;
+        // console.log(teamId);
+        axios.get(`http://localhost:9002/team?teamId=${teamId}`)
+            .then((res) => {
+                setTeam(res.data);
+                console.log(team);
+                setEditData(res.data);
+                userInfosRef.current = res.data;
+            })
+            .catch((err) => {
+                console.error(err);
+            });
+        axios.get(`http://localhost:9002/getTeamNotifications?teamId=${teamId}`)
+            .then((res) => {
+                const notificationData = res.data;
+                console.log(notificationData);
+                setNotifications(notificationData);
+                console.log(notifications);
+            })
+            .catch((err) => {
+                console.error(err);
+            });
+    }, []);
+    const handleEditSubmit = () => {
+        // Send a POST request to update player info
+        // const bidmanagerId = userInfosRef.current.ID;
+        console.log(`Updating team info for team ID: ${teamId}`);
+        // console.log(`data: ${editData}`);
+        // console.log(editData);
+        //const { player_name, age, mail, photo, playing_role } = req.body;
+        const sendData = { 
+            teamId: editData.ID,
+            mail: editData.MAIL,
+            logo: editData.LOGO,
+        };
+        axios
+            .post(`http://localhost:9002/updateTeamInfo`, sendData)
+            .then((res) => {
+                console.log(res.data);
+                alert('Team info updated successfully');
+                window.location.reload();
+                // You can optionally update the userInfosRef or cookies here if needed
+            })
+            .catch((err) => {
+                console.error(err);
+            });
+    };
+    const handleEditInputChange = (event) => {
+        const { name, value } = event.target;
+        setEditData({ ...editData, [name]: value });
+        console.log(editData);
+    };
     // const actionButtons = (rowData) => {
     //     return (
     //         <div>
@@ -140,11 +195,53 @@ const TeamLogin = ({ userInfo }) => {
         <div >
             {userInfosRef.current ? (
                 <>
+                    <img src = {team.LOGO} alt="Team Logo" width="200" height="200" />
                     <h1> Hello, {team.NAME}</h1>
                     <h2> Team ID: {team.ID}</h2>
                     <br />
+                    
+                    <div>
+                        <Collapsible
+                             triggerWhenOpen={`Edit Info ℹ`}
+                    
+                             trigger={
+                                `Team Info ℹ`
+                                
+                            }
+                             transitionCloseTime={100}
+                             transitionTime={300}
+                             open={false}
+     
+                         >
+                             <div className='input-container'>
+                            {/* Edit form */}
+                            
+                                <label>Email:</label>
+                                <input
+                                    type="text"
+                                    name="MAIL"
+                                    value={editData.MAIL || ''}
+                                    onChange={handleEditInputChange}
+                                />
+                                <br></br>
+                                <label>Logo :</label>
+                                <input
+                                    type="text"
+                                    name="LOGO"
+                                    value={editData.LOGO || ''}
+                                    onChange={handleEditInputChange}
+                                />
+                                <button type="submit"
+                                    onClick={handleEditSubmit}>Save Changes</button>
+                        
+
+                        </div>
+
+                        </Collapsible>
+                    </div>
+                    <br />
                     {/* <h2>Notifications</h2> */}
-                    <Collapsible trigger={<p><div className='noti'>Notifications</div></p>}>
+                    <Collapsible trigger={<div className='noti'>Notifications</div>}>
                         {
                             notifications && notifications.length > 0 ? (
                                 <DataTable value={notifications} className='table'>

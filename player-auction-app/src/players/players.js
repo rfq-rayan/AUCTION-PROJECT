@@ -158,8 +158,11 @@ const Players = () => {
                     /> */}
                         <select
                             value={category}
+                            // placeholder='Select Category'
                             onChange={(e) => setCategory(e.target.value)}
                         >
+                            {/* <placeholder>Select Category</placeholder> */}
+                            <option value="">Select Category</option>
                             <option value="a">A</option>
                             <option value="b">B</option>
                             <option value="c">C</option>
@@ -169,9 +172,8 @@ const Players = () => {
                     <DataTable value={players}>
                         <Column field="ID" header="ID" />
                         <Column field="NAME" header="Name" />
-                        {/* <Column field="BASE_PRICE" header="Base Price" />
-          <Column field="CATEGORY" header="Category" /> */}
-                        <Column field="STATUS" header="Status" />
+                        <Column field="STATUS" header="Status"
+                                body={(player) => (player.STATUS ? player.STATUS : "free")} />
                         <Column field="PLAYING_ROLE" header="Playing Role" />
                         <Column
                             body={(player) =>
@@ -197,7 +199,10 @@ const Players = () => {
                     <DataTable value={currentPlayers} tableStyle={{  minWidth: '50rem',minHeight: '12rem' }}>
                         <Column field="ID" header="ID" />
                         <Column field="NAME" header="Name" />
-                        <Column field="STATUS" header="Status" />
+                        <Column 
+                            field="STATUS" header="Status" 
+                            
+                        />
                         <Column field="PLAYING_ROLE" header="Playing Role" />
                         <Column field="BASE_PRICE" header="Base Price" />
                         <Column field="CATEGORY" header="Category" />

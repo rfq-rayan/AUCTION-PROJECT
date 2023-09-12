@@ -182,7 +182,9 @@ const AuctionDetails = () => {
             <DataTable value={bidmanagers}>
               <Column field='ID' header='ID'></Column>
               <Column field='NAME' header='Name'></Column>
-              <Column field='PHOTO' header='Photo'></Column>
+              <Column field='PHOTO' header='Photo'
+                body={(rowData) => <img src={rowData.PHOTO} alt="Player" width="100" height="100" />}
+              ></Column>
               <Column field='STATUS' header='Status'></Column>
               <Column
                 body={(bidmanager) =>

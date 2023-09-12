@@ -78,7 +78,6 @@ const BiddingArena = () => {
                 <hr></hr>
             </div>
             <div className="bidding-arena-body">
-                <h2>Current Bid</h2>
                 <div>
                     <h2 style={{ marginTop: '2rem', fontSize: '24px', }}> Currenly in  Bidding </h2>
                     <div className='table-container'>
