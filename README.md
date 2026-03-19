@@ -6,6 +6,8 @@ A web application for managing player auctions. Handles player invitations, bidd
 
 Full-stack application for player auctions. Admins create and manage auctions. Teams, players, and bid managers participate through separate interfaces. Supports real-time bidding, automatic player distribution, and fund management.
 
+##Demo
+[Video Link](https://www.facebook.com/masnoon.muztahid/videos/877874807396061/)
 ## Features
 
 ### User Roles
